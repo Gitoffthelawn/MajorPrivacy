@@ -282,6 +282,8 @@ public:
 
 	STATUS SetConfig(const char* Name, const StVariant& Value);
 
+	STATUS RegisterGUI();
+
 	STATUS SetUserKey(const CBuffer& PubKey, const CBuffer& EncryptedBlob, const CBuffer& InfoBlob/*, bool bLock = false*/);
 	RESULT(SUserKeyInfoPtr) GetUserKey();
 	STATUS ClearUserKey(const CBuffer& ChallengeResponse);

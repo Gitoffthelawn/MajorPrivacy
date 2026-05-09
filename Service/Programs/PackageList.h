@@ -46,6 +46,7 @@ protected:
 	{
 		CPackageList* pThis;
 		std::map<std::wstring, SPackagePtr> OldList;
+		std::map<std::wstring, SPackagePtr> NewList;
 	};
 
 	static BOOLEAN EnumCallBack(PVOID param, void* AppPackage, void* AppPackage2);

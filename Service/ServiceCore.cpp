@@ -1371,6 +1371,11 @@ HMODULE NTAPI MyLoadLibraryExW(
 	HANDLE hFile,
 	DWORD dwFlags)
 {
+	//
+	// On windows 7 the notifier set by PsSetLoadImageNotifyRoutine is als called for non executable image load
+	// we need those loads to read resoruces and icons, so we need to tell the driver upfront to skip the image verificatoin for the upcomming load
+	//
+
 	bool bNonExecutable = ((dwFlags & LOAD_LIBRARY_AS_IMAGE_RESOURCE) && (dwFlags & (LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE)));
 
 	if (bNonExecutable)
@@ -1388,13 +1393,8 @@ HMODULE NTAPI MyLoadLibraryExW(
 
 STATUS CServiceCore::InitHooks()
 {
-	//
-	// On windows 7 the notifier set by PsSetLoadImageNotifyRoutine is als called for non executable image load
-	// we need those loads to read resoruces and icons, so we need to tell the driver upfront to skip the image verificatoin for the upcomming load
-	//
-
 	if (g_WindowsVersion < WINDOWS_10)
-		HookFunction(LoadLibraryExW, MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
+		HookFunction(GetProcAddress(GetModuleHandleW(L"KernelBase.dll"), "LoadLibraryExW"), MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
 
 	return OK;
 }

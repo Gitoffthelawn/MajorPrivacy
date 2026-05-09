@@ -73,8 +73,6 @@ CPrivacyCore::CPrivacyCore(QObject* parent)
 
 	m_pSysLog = new CEventLogger(APP_NAME);
 	m_pEventLog = new CEventLog(this);
-	
-	InitHooks();
 
 	m_pSidResolver = new CSidResolver(this);
 	m_pSidResolver->Init();
@@ -300,6 +298,8 @@ STATUS CPrivacyCore::Connect(bool bCanStart, bool bEngineMode)
 			//m_Driver->RegisterForConfigEvents(EConfigGroup::eProgramRules);
 		}
 	}
+
+	m_Driver->RegisterGUI(); // this resets teh butt try counter
 
 	auto Result = m_Driver->GetProcessInfo(m_Service->GetProcessId());
 	if (!Result.IsError())
@@ -2116,6 +2116,10 @@ void CPrivacyWorker::DoUpdate()
 // Hooks
 //
 
+QMutex g_ImageLoadMutex;
+QMap<QString, quint64> g_DllBlockList; // path, timestamp re eval after 30 seconds
+QMap<quint64, QString> g_PendingImageLoads; // ThreadId -> DllName
+
 // Hook: NtMapViewOfSection
 
 #include "../Library/Hooking/HookUtils.h"
@@ -2165,6 +2169,11 @@ NTSTATUS NTAPI MyMapViewOfSection(
 		{
 			DbgPrint("MyMapViewOfSection: Invalid BaseAddress: %p", *BaseAddress);
 			status = STATUS_ACCESS_DENIED;
+
+			QMutexLocker Locker(&g_ImageLoadMutex);
+			QString DllName = g_PendingImageLoads.value(GetCurrentThreadId());
+			if (!DllName.isEmpty())
+				g_DllBlockList[DllName] = GetTickCount64() + 30*1000; // block for 30 seconds
 		}
 	}
 	return status;
@@ -2184,14 +2193,33 @@ HMODULE NTAPI MyLoadLibraryExW(
 	HANDLE hFile,
 	DWORD dwFlags)
 {
+	//
+	// On windows 7 the notifier set by PsSetLoadImageNotifyRoutine is als called for non executable image load
+	// we need those loads to read resoruces and icons, so we need to tell the driver upfront to skip the image verificatoin for the upcomming load
+	//
+
 	bool bNonExecutable = ((dwFlags & LOAD_LIBRARY_AS_IMAGE_RESOURCE) && (dwFlags & (LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE)));
 
-	if (bNonExecutable)
+	if (bNonExecutable && theCore)
 		theCore->Driver()->SetIgnorePendingImageLoad(true);
+
+	QMutexLocker Locker(&g_ImageLoadMutex);
+	quint64 BlockTime = g_DllBlockList.value(QString(lpLibFileName).toLower(), 0);
+	if (BlockTime && BlockTime > GetTickCount64()) {
+		SetLastError(ERROR_ACCESS_DENIED);
+		return NULL;
+	}
+
+	g_PendingImageLoads[GetCurrentThreadId()] = QString(lpLibFileName).toLower();
+	Locker.unlock();
 
 	HMODULE hModule = LoadLibraryExWTramp(lpLibFileName, hFile, dwFlags);
 
-	if (bNonExecutable)
+	Locker.relock();
+	g_PendingImageLoads.remove(GetCurrentThreadId());
+	Locker.unlock();
+
+	if (bNonExecutable && theCore)
 		theCore->Driver()->SetIgnorePendingImageLoad(false);
 
 	return hModule;
@@ -2210,13 +2238,7 @@ STATUS CPrivacyCore::InitHooks()
 
 	HookFunction(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtMapViewOfSection"), MyMapViewOfSection, (VOID**)&NtMapViewOfSectionTramp);
 
-	//
-	// On windows 7 the notifier set by PsSetLoadImageNotifyRoutine is als called for non executable image load
-	// we need those loads to read resoruces and icons, so we need to tell the driver upfront to skip the image verificatoin for the upcomming load
-	//
-
-	if (g_WindowsVersion < WINDOWS_10)
-		HookFunction(LoadLibraryExW, MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
+	HookFunction(GetProcAddress(GetModuleHandleW(L"KernelBase.dll"), "LoadLibraryExW"), MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
 
 	return OK;
 }

@@ -441,7 +441,11 @@ void CMajorPrivacy::UpdateLockStatus(bool bOnConnect)
 		else if ((uConfigStatus & CONFIG_STATUS_REVERTED) != 0)
 			QMessageBox::warning(this, "MajorPrivacy", tr("The current driver configuration was not loaded due to to many faild boot atempts, the last presumably good config was loaded instead."));
 		else if ((uConfigStatus & CONFIG_STATUS_SUPRESSED) != 0)
-			QMessageBox::warning(this, "MajorPrivacy", tr("The current driver configuration was not loaded due to to many faild boot atempts."));
+		{
+			if (QMessageBox::question(this, "MajorPrivacy", tr("The current driver configuration was not loaded due to to many faild boot atempts.\n"
+			 "Do you want to re-try loading the latest configuration?")) == QMessageBox::Yes)
+				theCore->Driver()->DiscardConfigChanges();
+		}
 	}
 }
 
@@ -785,7 +789,7 @@ void CMajorPrivacy::UpdateViews()
 	m_UpdatignView = false;
 
 	uint64 uNow = GetTickCount64();
-	//if(uNow - uStart > 100)
+	if(uNow - uStart > 100)
 		DbgPrint("CMajorPrivacy::UpdateViews took %llu ms\n", uNow - uStart);
 }
 

@@ -42,6 +42,10 @@ CFirewallRuleWnd::CFirewallRuleWnd(const CFwRulePtr& pRule, QSet<CProgramItemPtr
 		m_NameChanged = true;
 
 	connect(ui.txtName, SIGNAL(textChanged(const QString&)), this, SLOT(OnNameChanged(const QString&)));
+	connect(ui.btnMkName, &QToolButton::clicked, this, [&]() {
+		m_NameChanged = false;
+		TryMakeName();
+	});
 
 	connect(ui.btnProg, SIGNAL(clicked()), this, SLOT(OnPickProgram()));
 	connect(ui.cmbProgram, SIGNAL(currentIndexChanged(int)), this, SLOT(OnProgramChanged()));

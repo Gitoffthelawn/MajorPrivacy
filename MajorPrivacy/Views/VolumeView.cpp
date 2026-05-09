@@ -122,6 +122,13 @@ QString CVolumeView::GetSelectedVolumeImage()
 	return ImagePath;
 }
 
+QString CVolumeView::GetSelectedVolumeMount()
+{
+	QList<CVolumePtr> Volumes = GetSelectedItems();
+	if (Volumes.count() != 1) return QString();
+	return Volumes.at(0)->GetMountPoint();
+}
+
 void CVolumeView::OnDoubleClicked(const QModelIndex& Index)
 {
 	QModelIndex ModelIndex = m_pSortProxy->mapToSource(Index);
@@ -390,15 +397,16 @@ void CVolumeView::OnExpandVolume()
 
 	QHBoxLayout* sizeLayout = new QHBoxLayout();
 	QLineEdit* sizeEdit = new QLineEdit();
-	sizeEdit->setText("1024");
+	sizeEdit->setText("4");
 	sizeEdit->setMaximumWidth(150);
 	sizeLayout->addWidget(sizeEdit);
 
 	QComboBox* unitCombo = new QComboBox();
-	unitCombo->addItem(tr("KB"), 0);
-	unitCombo->addItem(tr("MB"), 1);
-	unitCombo->addItem(tr("GB"), 2);
-	unitCombo->setCurrentIndex(1); // Default to MB
+	//unitCombo->addItem(tr("KB"), 1024ULL);
+	unitCombo->addItem(tr("MB"), 1024ULL * 1024ULL);
+	unitCombo->addItem(tr("GB"), 1024ULL * 1024ULL * 1024ULL);
+	unitCombo->addItem(tr("TB"), 1024ULL * 1024ULL * 1024ULL * 1024ULL);
+	unitCombo->setCurrentIndex(1); // Default to GB
 	sizeLayout->addWidget(unitCombo);
 	sizeLayout->addStretch();
 	layout->addLayout(sizeLayout);
@@ -414,15 +422,9 @@ void CVolumeView::OnExpandVolume()
 			newSizeLabel->setText(tr("<span style='color:red;'>Please enter a valid size.</span>"));
 			return;
 		}
+		quint64 addUnit = unitCombo->currentData().toULongLong();
 
-		quint64 addSizeBytes;
-		switch (unitCombo->currentIndex()) {
-		case 0: addSizeBytes = addSize * 1024ULL; break;
-		case 1: addSizeBytes = addSize * 1024ULL * 1024ULL; break;
-		case 2: addSizeBytes = addSize * 1024ULL * 1024ULL * 1024ULL; break;
-		default: addSizeBytes = addSize * 1024ULL * 1024ULL;
-		}
-
+		quint64 addSizeBytes = addSize * addUnit;
 		quint64 newTotalSize = CurrentSize + addSizeBytes;
 		newSizeLabel->setText(tr("New total size: <b>%1</b> (adding %2)")
 			.arg(FormatSize(newTotalSize))
@@ -449,15 +451,9 @@ void CVolumeView::OnExpandVolume()
 		QMessageBox::warning(this, tr("Expand Volume"), tr("Please enter a valid size to add."));
 		return;
 	}
+	quint64 addUnit = unitCombo->currentData().toULongLong();
 
-	quint64 addSizeBytes;
-	switch (unitCombo->currentIndex()) {
-	case 0: addSizeBytes = addSize * 1024ULL; break;
-	case 1: addSizeBytes = addSize * 1024ULL * 1024ULL; break;
-	case 2: addSizeBytes = addSize * 1024ULL * 1024ULL * 1024ULL; break;
-	default: addSizeBytes = addSize * 1024ULL * 1024ULL;
-	}
-
+	quint64 addSizeBytes = addSize * addUnit;
 	RunVolumeOperation(tr("Expanding volume..."), [=]() {
 		return theCore->ExpandVolume(MountPoint, addSizeBytes);
 	}, nullptr, QList<CVolumePtr>() << pVolume);

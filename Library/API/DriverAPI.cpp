@@ -358,7 +358,7 @@ STATUS CDriverAPI::InstallDrv(bool bAutoStart, uint32 TraceLogLevel)
     Params["TraceLevel"] = TraceLogLevel;
 #ifdef _DEBUG
     Params["AllowUserDev"] = TRUE;
-    Params["SignProbeAll"] = FALSE;
+    Params["SignProbeAll"] = TRUE;
     Params["AllowDebugging"] = TRUE;
 #endif
 
@@ -589,6 +589,12 @@ STATUS CDriverAPI::SetConfig(const char* Name, const StVariant& Value)
     ReqVar[API_V_KEY] = Name;
     ReqVar[API_V_VALUE] = Value;
     return Call(API_SET_CONFIG_VALUE, ReqVar);
+}
+
+STATUS CDriverAPI::RegisterGUI()
+{
+    StVariant ReqVar;
+	return Call(API_REGISTER_GUI, ReqVar, NULL);
 }
 
 STATUS CDriverAPI::SetUserKey(const CBuffer& PubKey, const CBuffer& EncryptedBlob, const CBuffer& InfoBlob/*, bool bLock*/)

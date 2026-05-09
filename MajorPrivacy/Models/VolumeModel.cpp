@@ -80,7 +80,7 @@ QList<QModelIndex>	CVolumeModel::Sync(const QList<CVolumePtr>& VolumeList)
 			QVariant Value;
 			switch (section)
 			{
-			case eName:				Value = pVolume->GetName(); break;
+			case eName:				Value = pVolume->GetDevicePath().isEmpty() ? pVolume->GetName() : tr("%1 (%2)").arg(pVolume->GetName()).arg(pVolume->GetDevicePath()); break;
 			case eStatus:			Value = pVolume->GetStatus(); break;
 			case eMountPoint:		Value = pVolume->GetMountPoint(); break;
 			case eTotalSize:		Value = pVolume->IsFolder() ? -1 : pVolume->GetVolumeSize() - pVolume->GetHeaderLen(); break;
@@ -99,7 +99,7 @@ QList<QModelIndex>	CVolumeModel::Sync(const QList<CVolumePtr>& VolumeList)
 				switch (section)
 				{
 				case eStatus:		ColValue.Formatted = pVolume->GetStatusStr(); break;
-				case eMountPoint:	ColValue.Formatted = pVolume->GetMountPoint().isEmpty() ? "" : tr("%1 (%2)").arg(pVolume->GetMountPoint()).arg(pVolume->GetFS()); break;
+				case eMountPoint:	ColValue.Formatted = (pVolume->GetMountPoint().isEmpty() || pVolume->GetFS().isEmpty()) ? pVolume->GetMountPoint() : tr("%1 (%2)").arg(pVolume->GetMountPoint()).arg(pVolume->GetFS()); break;
 				case eTotalSize:	if (Value.toULongLong() == -1) ColValue.Formatted = ""; 
 									else {
 										QString Info = FormatSize(Value.toULongLong());

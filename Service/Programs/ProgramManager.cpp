@@ -840,12 +840,29 @@ void CProgramManager::AddInstallation(const CInstallationList::SInstallationPtr&
 {
 	std::wstring Key = MkLower(pInstalledApp->RegKey);
 
+	std::wstring Path = theCore->NormalizePath(pInstalledApp->InstallPath, false);
+
 	std::unique_lock lock(m_Mutex);
 	CAppInstallationPtr& pAppInstall = m_InstallMap[Key];
+
+	if (pAppInstall)
+	{
+		if (pAppInstall->GetPath() != Path)
+		{
+			std::wstring Key = MkLower(pInstalledApp->RegKey);
+
+			auto F = m_InstallMap.find(Key);
+			if (F != m_InstallMap.end())
+				F->second->SetMissing(true);
+
+			pAppInstall.reset();
+		}
+	}
+
 	if (!pAppInstall) {
 		pAppInstall = CAppInstallationPtr(new CAppInstallation(pInstalledApp->RegKey));
 		pAppInstall->SetName(pInstalledApp->DisplayName);
-		pAppInstall->SetPath(theCore->NormalizePath(pInstalledApp->InstallPath, false));
+		pAppInstall->SetPath(Path);
 		pAppInstall->SetIcon(pInstalledApp->DisplayIcon);
 		m_Items.insert(std::make_pair(pAppInstall->GetUID(), pAppInstall));
 		lock.unlock();

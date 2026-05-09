@@ -52,7 +52,7 @@ void AddAccountsToComboBox(QComboBox* pComboBox)
 }
 
 
-CAccessRuleWnd::CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr> Items, const QString& VolumeRoot, const QString& VolumeImage, QWidget* parent)
+CAccessRuleWnd::CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr> Items, const QString& VolumeRoot, const QString& VolumeImage, const QString& MountPoint, QWidget* parent)
 	: QDialog(parent)
 {
 	Qt::WindowFlags flags = windowFlags();
@@ -74,24 +74,30 @@ CAccessRuleWnd::CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr
 
 	setWindowTitle(bNew ? tr("Create Program Rule") : tr("Edit Program Rule"));
 
-	foreach(auto pItem, Items) 
+	foreach(auto pItem, Items)
 		AddProgramItem(pItem);
 
 	if (bNew && m_pRule->m_Name.isEmpty()) {
 		m_pRule->m_Name = tr("New Access Rule");
-	} else
+	}
+	else
 		m_NameChanged = true;
 
 	ui.cmbEnclave->addItem(tr("Global (Any/No Enclave)"));
 	foreach(auto& pEnclave, theCore->EnclaveManager()->GetAllEnclaves()) {
-		if(pEnclave->IsSystem()) continue;
+		if (pEnclave->IsSystem()) continue;
 		ui.cmbEnclave->addItem(pEnclave->GetName(), pEnclave->GetGuid().ToQV());
 	}
 
 	m_VolumeRoot = VolumeRoot;
 	m_VolumeImage = VolumeImage;
+	m_MountPoint = MountPoint;
 
 	connect(ui.txtName, SIGNAL(textChanged(const QString&)), this, SLOT(OnNameChanged(const QString&)));
+	connect(ui.btnMkName, &QToolButton::clicked, this, [&]() {
+		m_NameChanged = false;
+		TryMakeName();
+	});
 
 	connect(ui.cmbPath, SIGNAL(editTextChanged(const QString&)), this, SLOT(OnPathChanged()));
 	connect(ui.btnBrowse, SIGNAL(clicked()), this, SLOT(BrowseFolder()));
@@ -174,11 +180,22 @@ CAccessRuleWnd::CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr
 		ui.cmbPath->addItem(Path);
 	}
 
-	if(!m_pRule->m_AccessPath.isEmpty())
-		ui.cmbPath->setEditText(m_pRule->m_AccessPath);
+	if(!m_pRule->m_AccessPath.isEmpty()) {
+		QString DisplayPath = m_pRule->m_AccessPath;
+		// Convert VolumeRoot to MountPoint for display
+		if (!m_MountPoint.isEmpty() && !m_VolumeRoot.isEmpty() && PathStartsWith(DisplayPath, m_VolumeRoot)) {
+			QString Suffix = DisplayPath.mid(m_VolumeRoot.length());
+			if ((m_MountPoint.endsWith("\\") || m_MountPoint.endsWith("/")) && (Suffix.startsWith("\\") || Suffix.startsWith("/")))
+				Suffix = Suffix.mid(1);
+			DisplayPath = m_MountPoint + Suffix;
+		}
+		ui.cmbPath->setEditText(DisplayPath);
+	}
 	else if (m_VolumeImage.endsWith("\\")) // Protected Folder
 		ui.cmbPath->setEditText(m_VolumeImage);
-	else if(!m_VolumeRoot.isEmpty()) // Rule stored on the volume
+	else if(!m_MountPoint.isEmpty()) // Rule stored on the volume - use mount point for display
+		ui.cmbPath->setEditText(m_MountPoint);
+	else if(!m_VolumeRoot.isEmpty()) // Fallback to volume root
 		ui.cmbPath->setEditText(m_VolumeRoot + "\\");
 	else if (!m_VolumeImage.isEmpty()) { // Rule stored globally
 		m_VolumeImage += "/";
@@ -366,6 +383,16 @@ bool CAccessRuleWnd::Save()
 	m_pRule->m_SidValid = false;
 
 	QString Path = ui.cmbPath->currentText();
+
+	// Convert MountPoint back to VolumeRoot for storage
+	if (!m_MountPoint.isEmpty() && !m_VolumeRoot.isEmpty() && PathStartsWith(Path, m_MountPoint)) {
+		QString Suffix = Path.mid(m_MountPoint.length());
+		if (!Suffix.isEmpty() && !Suffix.startsWith("\\") && !Suffix.startsWith("/"))
+			Path = m_VolumeRoot + "\\" + Suffix;
+		else
+			Path = m_VolumeRoot + Suffix;
+	}
+
 	if (!m_VolumeImage.isEmpty() && !PathStartsWith(Path, m_VolumeImage) && !PathStartsWith(Path, m_VolumeRoot)) {
 		QMessageBox::information(this, "MajorPrivacy", tr("The path must be contained within the volume."));
 		return false;
@@ -493,6 +520,20 @@ void CAccessRuleWnd::TryMakeName()
 	QString Program = ui.cmbProgram->currentText();
 	if (Action.isEmpty() && Path.isEmpty())
 		return;
+
+	// For volume rules, shorten the path to ...\suffix
+	if (!m_MountPoint.isEmpty() && PathStartsWith(Path, m_MountPoint)) {
+		QString Suffix = Path.mid(m_MountPoint.length());
+		if (Suffix.startsWith("\\") || Suffix.startsWith("/"))
+			Suffix = Suffix.mid(1);
+		Path = Split2(m_VolumeImage, "\\", true).second +  "\\" + Suffix;
+	}
+	else if (!m_VolumeRoot.isEmpty() && PathStartsWith(Path, m_VolumeRoot)) {
+		QString Suffix = Path.mid(m_VolumeRoot.length());
+		if (Suffix.startsWith("\\") || Suffix.startsWith("/"))
+			Suffix = Suffix.mid(1);
+		Path = Split2(m_VolumeImage, "\\", true).second +  "\\" + Suffix;
+	}
 
 	m_NameHold = true;
 	ui.txtName->setText(tr("%1 %2 %3").arg(Action).arg(Path).arg(Program.isEmpty() ? "" : tr(" (%1)").arg(Program)));

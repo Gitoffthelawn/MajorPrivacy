@@ -812,10 +812,12 @@ STATUS CVolumeManager::DismountVolume(const std::shared_ptr<CVolume>& pMount)
     }
 
     //
-    // When unmounting imdisk.exe needs to be able to lock the volume
+    // When unmounting we needs to be able to lock the volume
     //
 
-    CProgramID ID(theCore->NormalizePath(L"\\SystemRoot\\System32\\imdisk.exe"));
+    wchar_t szPath[MAX_PATH];
+    GetModuleFileNameW(NULL, szPath, ARRAYSIZE(szPath));
+    CProgramID ID(szPath);
     CAccessRulePtr pRule = std::make_shared<CAccessRule>(ID);
     pRule->SetName(L"#Unmount," + ImageDosPath);
     pRule->SetAccessPath(DevicePath);
@@ -835,11 +837,11 @@ STATUS CVolumeManager::DismountVolume(const std::shared_ptr<CVolume>& pMount)
     // Clean up rule
     //
 
-    if (!bOk) {
-        if(!ruleGuid.empty())
-            theCore->AccessManager()->RemoveRule(ruleGuid, pMount->GetLockdownToken());
+    if(!ruleGuid.empty())
+        theCore->AccessManager()->RemoveRule(ruleGuid, pMount->GetLockdownToken());
+
+    if (!bOk)
         return STATUS_UNSUCCESSFUL;
-    }
 
 	CleanUpVolume(pMount);
 

@@ -1000,7 +1000,10 @@ void CPopUpWindow::LoadResEntry(bool bUpdate)
 		else
 			pItem->setText(eResProcessId, tr("%1 (%2)").arg(pEntry->GetProcessId()).arg(pEntry->GetOwnerService()));
 		CProcessPtr pProcess = theCore->ProcessList()->GetProcess(pEntry->GetProcessId(), true);
-		if(pProcess) pItem->setText(eResCmdLine, pProcess->GetCmdLine());
+		if (pProcess) {
+			pItem->setText(eResUser, pProcess->GetUser());
+			pItem->setText(eResCmdLine, pProcess->GetCmdLine());
+		}
 		ui.treeRes->addTopLevelItem(pItem);
 	}
 }

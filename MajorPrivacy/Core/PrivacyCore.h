@@ -366,6 +366,8 @@ public:
 
 	CSidResolver*		GetSidResolver() {return m_pSidResolver;}
 
+	static STATUS		InitHooks();
+
 signals:
 	void				ProgramsAdded();
 	void				UnruledFwEvent(const CProgramFilePtr& pProgram, const CLogEntryPtr& pEntry);
@@ -405,8 +407,6 @@ protected:
 	static void			DeviceChangedCallback(void* param);
 
 	static QtVariant	MakeIDs(const QList<const class CProgramItem*>& Nodes);
-
-	STATUS				InitHooks();
 
 	class CEventLogger*	m_pSysLog = NULL;
 	class CEventLog* m_pEventLog = NULL;

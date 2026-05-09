@@ -39,6 +39,8 @@ public:
 	std::wstring GetNtFilePath() const { std::shared_lock Lock(m_Mutex); return m_NtFilePath; }
 	std::wstring GetWorkDir() const;
 
+	std::wstring GetUserSid() const { std::shared_lock Lock(m_Mutex); return m_UserSid; }
+
 	CFlexGuid GetEnclave() const { std::shared_lock Lock(m_Mutex); return m_EnclaveGuid; }
 	uint32 GetSecState() const { std::shared_lock Lock(m_Mutex); return m_SecState; }
 	uint32 GetFlags() const { std::shared_lock Lock(m_Mutex); return m_Flags; }

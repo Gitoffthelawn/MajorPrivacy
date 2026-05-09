@@ -89,6 +89,12 @@ void CGenericRule::CopyTo(CGenericRule* pRule, bool CloneGuid) const
 
 	pRule->m_bEnabled = m_bEnabled;
 
+	pRule->m_Enclave = m_Enclave;
+
+	pRule->m_User = m_User;
+	pRule->m_SidValid = m_SidValid;
+	pRule->m_UserSid = m_UserSid;
+
 	//pRule->m_ProgramID = m_ProgramID;
 }
 

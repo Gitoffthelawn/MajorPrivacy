@@ -2,6 +2,23 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.99.9] - 2026-05-09
+
+### Added
+- added user column to access log
+
+### fixed 
+- fixed issue causing the UI sometimes to not be recognized by the driver as a protected process
+- fixed user name in rules not being properly saved and applied
+- fixed issues with config recovery after failed boots
+- fixed issues when paths of installed appliations changed
+
+### Changed
+- updated imdisk driver to latest version 3.0.1
+- improved volume view
+
+
+
 
 ## [0.99.8] - 2026-04-26
 

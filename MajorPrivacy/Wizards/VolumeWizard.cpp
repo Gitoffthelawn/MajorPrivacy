@@ -151,18 +151,8 @@ QString CVolumeWizard::GetPassword() const
 quint64 CVolumeWizard::GetImageSize() const
 {
     quint64 size = field("volumeSize").toULongLong();
-    int unit = field("sizeUnit").toInt();
-
-    switch (unit) {
-    case 0: // KB
-        return size * 1024ULL;
-    case 1: // MB
-        return size * 1024ULL * 1024ULL;
-    case 2: // GB
-        return size * 1024ULL * 1024ULL * 1024ULL;
-    default:
-        return size * 1024ULL * 1024ULL; // Default to MB
-    }
+    quint64 unit = field("sizeUnit").toULongLong();
+    return size * unit;
 }
 
 QString CVolumeWizard::GetCipher() const
@@ -596,21 +586,22 @@ CVolumeSizePage::CVolumeSizePage(QWidget *parent)
     gridLayout->addWidget(sizeLabel, 0, 0);
 
     m_pSizeEdit = new QLineEdit;
-    m_pSizeEdit->setText("2048");
+    m_pSizeEdit->setText("4");
     m_pSizeEdit->setMaximumWidth(100);
     connect(m_pSizeEdit, &QLineEdit::textChanged, this, &CVolumeSizePage::OnSizeChanged);
     gridLayout->addWidget(m_pSizeEdit, 0, 1);
     registerField("volumeSize", m_pSizeEdit);
 
     m_pSizeUnit = new QComboBox;
-    m_pSizeUnit->addItem(tr("KB"), 0);
-    m_pSizeUnit->addItem(tr("MB"), 1);
-    m_pSizeUnit->addItem(tr("GB"), 2);
-    m_pSizeUnit->setCurrentIndex(1); // Default to MB
+    //m_pSizeUnit->addItem(tr("KB"), 1024ULL);
+    m_pSizeUnit->addItem(tr("MB"), 1024ULL * 1024ULL);
+    m_pSizeUnit->addItem(tr("GB"), 1024ULL * 1024ULL * 1024ULL);
+    m_pSizeUnit->addItem(tr("TB"), 1024ULL * 1024ULL * 1024ULL * 1024ULL);
+    m_pSizeUnit->setCurrentIndex(1); // Default to GB
     m_pSizeUnit->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     connect(m_pSizeUnit, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CVolumeSizePage::OnSizeChanged);
     gridLayout->addWidget(m_pSizeUnit, 0, 2);
-    registerField("sizeUnit", m_pSizeUnit, "currentIndex", "currentIndexChanged");
+    registerField("sizeUnit", m_pSizeUnit, "currentData", "currentIndexChanged");
 
     QLabel* fsLabel = new QLabel(tr("File System:"));
     gridLayout->addWidget(fsLabel, 1, 0);
@@ -648,26 +639,12 @@ void CVolumeSizePage::OnSizeChanged()
 {
     bool ok;
     quint64 size = m_pSizeEdit->text().toULongLong(&ok);
-    int unit = m_pSizeUnit->currentIndex();
+    quint64 unit = m_pSizeUnit->currentData().toULongLong();
+    quint64 sizeInBytes = size * unit;
 
     if (!ok || size == 0) {
         m_pSizeInfo->setText(tr("<span style='color:red;'>Please enter a valid size.</span>"));
         return;
-    }
-
-    quint64 sizeInBytes;
-    switch (unit) {
-    case 0: // KB
-        sizeInBytes = size * 1024ULL;
-        break;
-    case 1: // MB
-        sizeInBytes = size * 1024ULL * 1024ULL;
-        break;
-    case 2: // GB
-        sizeInBytes = size * 1024ULL * 1024ULL * 1024ULL;
-        break;
-    default:
-        sizeInBytes = size * 1024ULL * 1024ULL;
     }
 
     QString sizeStr = FormatSize(sizeInBytes);
@@ -676,7 +653,7 @@ void CVolumeSizePage::OnSizeChanged()
         : QString();
 
     if (sizeInBytes < 128ULL * 1024ULL * 1024ULL) {
-        m_pSizeInfo->setText(tr("<span style='color:red;'>Size too small. Minimum size is 256 MB.</span>") + fsWarning);
+        m_pSizeInfo->setText(tr("<span style='color:red;'>Size too small. Minimum size is 128 MB.</span>") + fsWarning);
     } else if (sizeInBytes < 256ULL * 1024ULL * 1024ULL) {
         m_pSizeInfo->setText(tr("<span style='color:orange;'>Warning: Size is below recommended minimum of 256 MB.</span><br/>Volume size: %1").arg(sizeStr) + fsWarning);
     } else if (sizeInBytes < 2ULL * 1024ULL * 1024ULL * 1024ULL) {
@@ -705,14 +682,8 @@ bool CVolumeSizePage::isComplete() const
     if (!ok || size == 0)
         return false;
 
-    int unit = m_pSizeUnit->currentIndex();
-    quint64 sizeInBytes;
-    switch (unit) {
-    case 0: sizeInBytes = size * 1024ULL; break;
-    case 1: sizeInBytes = size * 1024ULL * 1024ULL; break;
-    case 2: sizeInBytes = size * 1024ULL * 1024ULL * 1024ULL; break;
-    default: sizeInBytes = size * 1024ULL * 1024ULL;
-    }
+    quint64 unit = m_pSizeUnit->currentData().toULongLong();
+    quint64 sizeInBytes = size * unit;
 
     return sizeInBytes >= 128ULL * 1024ULL * 1024ULL;
 }
@@ -721,19 +692,12 @@ bool CVolumeSizePage::validatePage()
 {
     bool ok;
     quint64 size = m_pSizeEdit->text().toULongLong(&ok);
-    int unit = m_pSizeUnit->currentIndex();
-
-    quint64 sizeInBytes;
-    switch (unit) {
-    case 0: sizeInBytes = size * 1024ULL; break;
-    case 1: sizeInBytes = size * 1024ULL * 1024ULL; break;
-    case 2: sizeInBytes = size * 1024ULL * 1024ULL * 1024ULL; break;
-    default: sizeInBytes = size * 1024ULL * 1024ULL;
-    }
+    quint64 unit = m_pSizeUnit->currentData().toULongLong();
+    quint64 sizeInBytes = size * unit;
 
     if (sizeInBytes < 128ULL * 1024ULL * 1024ULL) {
         QMessageBox::warning(this, tr("Volume Creation"),
-            tr("The volume size must be at least 256 MB."));
+            tr("The volume size must be at least 128 MB."));
         return false;
     }
 
@@ -1028,14 +992,8 @@ void CVolumeSummaryPage::initializePage()
     QString cipher = cipherIndex >= 0 && cipherIndex < ciphers.size() ? ciphers[cipherIndex] : "AES";
 
     quint64 size = field("volumeSize").toULongLong();
-    int unit = field("sizeUnit").toInt();
-    quint64 sizeInBytes;
-    switch (unit) {
-    case 0: sizeInBytes = size * 1024ULL; break;
-    case 1: sizeInBytes = size * 1024ULL * 1024ULL; break;
-    case 2: sizeInBytes = size * 1024ULL * 1024ULL * 1024ULL; break;
-    default: sizeInBytes = size * 1024ULL * 1024ULL;
-    }
+    quint64 unit = field("sizeUnit").toULongLong();
+    quint64 sizeInBytes = size * unit;
     QString sizeStr = FormatSize(sizeInBytes);
 
     QString fileSystem = field("fileSystem").toString();

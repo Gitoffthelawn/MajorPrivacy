@@ -20,6 +20,7 @@ public:
 	
 	QString					GetSelectedVolumePath();
 	QString					GetSelectedVolumeImage();
+	QString					GetSelectedVolumeMount();
 
 protected:
 	void					OnMenu(const QPoint& Point) override;

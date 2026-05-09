@@ -32,14 +32,15 @@ protected:
 	struct SEnumParams
 	{
 		CInstallationList* pThis;
-		std::map<std::wstring, SInstallationPtr> OldList;
+		//std::map<std::wstring, SInstallationPtr> OldList;
+		std::map<std::wstring, SInstallationPtr> NewList;
 	};
 
 	static VOID EnumCallBack(PVOID param, const std::wstring& RegKey);
 
 	static void EnumInstallations(const std::wstring& RegKey, VOID(*CallBack)(PVOID param, const std::wstring& RegKey), PVOID param);
 
-	std::shared_mutex  m_Mutex;
+	//std::shared_mutex  m_Mutex;
 
-	std::map<std::wstring, SInstallationPtr> m_List; // by RegKey
+	//std::map<std::wstring, SInstallationPtr> m_List; // by RegKey
 };

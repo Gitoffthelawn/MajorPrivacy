@@ -806,9 +806,9 @@ EAccessRuleType CProcessList::GetResourceAccess(const std::wstring& NtPath, uint
         return EAccessRuleType::eNone;
 
 #ifdef DEF_USE_POOL
-    CResLogEntryPtr pLogEntry = pActorProgram->Allocator()->New<CResLogEntry>(pActorProcess->GetEnclave(), NtPath, ActorServiceTag, AccessMask, EEventStatus::eProtected, AccessTime, ActorPid);
+    CResLogEntryPtr pLogEntry = pActorProgram->Allocator()->New<CResLogEntry>(pActorProcess->GetEnclave(), NtPath, pActorProcess->GetUserSid(), ActorServiceTag, AccessMask, EEventStatus::eProtected, AccessTime, ActorPid);
 #else
-    CResLogEntryPtr pLogEntry = CResLogEntryPtr(new CResLogEntry(pActorProcess->GetEnclave(), NtPath, ActorServiceTag, AccessMask, EEventStatus::eProtected, AccessTime, ActorPid));
+    CResLogEntryPtr pLogEntry = CResLogEntryPtr(new CResLogEntry(pActorProcess->GetEnclave(), NtPath, pActorProcess->GetUserSid(), ActorServiceTag, AccessMask, EEventStatus::eProtected, AccessTime, ActorPid));
 #endif
 
     uint64 LogIndex = pActorProgram->AddTraceLogEntry(pLogEntry, ETraceLogs::eResLog);
@@ -877,9 +877,9 @@ void CProcessList::OnResourceAccessed(const std::wstring& NtPath, uint64 ActorPi
     pActorProgram->AddAccess(ActorServiceTag, DosPath, AccessMask, AccessTime, NtStatus, IsDirectory, (Status != EEventStatus::eAllowed));
 
 #ifdef DEF_USE_POOL
-	CResLogEntryPtr pLogEntry = pActorProgram->Allocator()->New<CResLogEntry>(pActorProcess->GetEnclave(), NtPath, ActorServiceTag, AccessMask, Status, AccessTime, ActorPid);
+	CResLogEntryPtr pLogEntry = pActorProgram->Allocator()->New<CResLogEntry>(pActorProcess->GetEnclave(), NtPath, pActorProcess->GetUserSid(), ActorServiceTag, AccessMask, Status, AccessTime, ActorPid);
 #else
-    CResLogEntryPtr pLogEntry = CResLogEntryPtr(new CResLogEntry(pActorProcess->GetEnclave(), NtPath, ActorServiceTag, AccessMask, Status, AccessTime, ActorPid));
+    CResLogEntryPtr pLogEntry = CResLogEntryPtr(new CResLogEntry(pActorProcess->GetEnclave(), NtPath, pActorProcess->GetUserSid(), ActorServiceTag, AccessMask, Status, AccessTime, ActorPid));
 #endif
     
     uint64 LogIndex = pActorProgram->AddTraceLogEntry(pLogEntry, ETraceLogs::eResLog);

@@ -79,8 +79,7 @@ BOOLEAN CPackageList::EnumCallBack(PVOID param, void* AppPackage, void* AppPacka
 
         pAppPackage->PackageInstallPath = PackageInstallPath; // DOS Path
 
-        pParams->pThis->m_List.insert(std::make_pair(PackageFullName, pAppPackage));
-        theCore->ProgramManager()->AddPackage(pAppPackage);
+		pParams->NewList.insert(std::make_pair(PackageFullName, pAppPackage));
     }
 
     return TRUE;
@@ -113,6 +112,17 @@ void CPackageList::Update()
         SPackagePtr pAppPackage = E.second;
         if (pAppPackage) theCore->ProgramManager()->RemovePackage(pAppPackage);
     }
+
+    for (auto E : Params.NewList) {
+        SPackagePtr pAppPackage = E.second;
+        m_List.insert(std::make_pair(pAppPackage->PackageFullName, pAppPackage));
+        //theCore->ProgramManager()->AddPackage(pAppPackage);
+    }
+
+	for (auto E : m_List) {
+		SPackagePtr pAppPackage = E.second;
+		theCore->ProgramManager()->AddPackage(pAppPackage);
+	}
 }
 
 /*void CPackageList::UpdateAsync()

@@ -81,6 +81,8 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	CPrivacyCore::InitHooks();
+
 	QString AppDir = QString::fromStdWString(GetApplicationDirectory());
 	theConf = new CSettings(AppDir, "MajorPrivacy", "Xanasoft");
 

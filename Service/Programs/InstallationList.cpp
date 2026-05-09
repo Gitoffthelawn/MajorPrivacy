@@ -37,14 +37,17 @@ VOID CInstallationList::EnumCallBack(PVOID param, const std::wstring& RegKey)
     if(InstallLocation.at(0) == L'\"')
         InstallLocation = InstallLocation.substr(1, InstallLocation.length() - 2);
 
-    bool bAdd = false;
-    auto F = pParams->OldList.find(RegKey);
     SInstallationPtr pInstalledApp;
-    if (F != pParams->OldList.end()) {
-        pInstalledApp = F->second;
-        pParams->OldList.erase(F);
-    }
-    else
+    //auto F = pParams->OldList.find(RegKey);
+    //if (F != pParams->OldList.end()) {
+    //    pInstalledApp = F->second;
+    //    if(pInstalledApp->InstallPath == InstallLocation)
+    //        pParams->OldList.erase(F);
+    //    else
+    //        pInstalledApp.reset();
+    //}
+    //
+    //if(!pInstalledApp)
     {
         pInstalledApp = SInstallationPtr(new SInstallation());
 
@@ -55,18 +58,16 @@ VOID CInstallationList::EnumCallBack(PVOID param, const std::wstring& RegKey)
 
         pInstalledApp->InstallPath = InstallLocation; // DOS Path
 
-        if(!theCore->ProgramManager()->IsPathReserved(InstallLocation))
-            bAdd = true;
+        // ignore entries pointing to default windows locations
+        if(theCore->ProgramManager()->IsPathReserved(InstallLocation))
+			return;
+
+        pParams->NewList.insert(std::make_pair(RegKey, pInstalledApp));
     }
 
     pInstalledApp->DisplayName = RegQueryWString(hKey, L"DisplayName");
     pInstalledApp->DisplayIcon = RegQueryWString(hKey, L"DisplayIcon");
     pInstalledApp->DisplayVersion = RegQueryWString(hKey, L"DisplayVersion");
-
-    if (bAdd) {
-        pParams->pThis->m_List.insert(std::make_pair(RegKey, pInstalledApp));
-        theCore->ProgramManager()->AddInstallation(pInstalledApp);
-    }
 }
 
 void CInstallationList::EnumInstallations(const std::wstring& RegKey, VOID(*CallBack)(PVOID param, const std::wstring& RegKey), PVOID param)
@@ -87,7 +88,7 @@ void CInstallationList::Update()
 
     SEnumParams Params;
     Params.pThis = this;
-    Params.OldList = m_List;
+    //Params.OldList = m_List;
 
 #ifdef _DEBUG
     uint64 start = GetUSTickCount();
@@ -102,9 +103,15 @@ void CInstallationList::Update()
     DbgPrint("EnumAllAppPackages took %llu ms cycles\r\n", (GetUSTickCount() - start) / 1000);
 #endif
 
-    for(auto E: Params.OldList) {
-        m_List.erase(E.first);
+    //for(auto E: Params.OldList) {
+    //    m_List.erase(E.first);
+    //    SInstallationPtr pInstalledApp = E.second;
+    //    if (pInstalledApp) theCore->ProgramManager()->RemoveInstallation(pInstalledApp);
+    //}
+
+	for (auto E : Params.NewList) {
         SInstallationPtr pInstalledApp = E.second;
-        if (pInstalledApp) theCore->ProgramManager()->RemoveInstallation(pInstalledApp);
-    }
+        //m_List.insert(std::make_pair(pInstalledApp->RegKey, pInstalledApp));
+        theCore->ProgramManager()->AddInstallation(pInstalledApp);
+	}
 }

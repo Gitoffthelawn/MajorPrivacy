@@ -310,7 +310,7 @@ void CVolumeWindow::BrowseMountPoint()
 {
 	QString path = QFileDialog::getExistingDirectory(this, tr("Select Mount Point"), ui.cmbMount->currentText());
 	if (!path.isEmpty())
-		ui.cmbMount->setCurrentText(path);
+		ui.cmbMount->setCurrentText(path.replace("/", "\\"));
 }
 
 void CVolumeWindow::SetAutoLock(int iSeconds, const QString& Text) const 

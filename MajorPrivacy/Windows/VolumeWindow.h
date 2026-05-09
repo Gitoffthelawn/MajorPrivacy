@@ -26,7 +26,7 @@ public:
 	QString		GetNewPassword() const { return m_NewPassword; }
 	void		SetImageSize(quint64 uSize) const { return ui.txtImageSize->setText(QString::number(uSize / 1024)); }
 	quint64		GetImageSize() const { return ui.txtImageSize->text().toULongLong() * 1024; }
-	QString 	GetMountPoint() const { return ui.cmbMount->currentText(); }
+	QString 	GetMountPoint() const { return ui.cmbMount->currentText().replace("/", "\\"); }
 	bool		UseProtection() const { return ui.chkProtect->isChecked(); }
 	bool		UseLockdown() const { return ui.chkLockdown->isChecked(); }
 	void		SetAutoLock(int iSeconds, const QString& Text = "") const;

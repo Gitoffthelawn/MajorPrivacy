@@ -85,7 +85,7 @@ typedef struct _FILE_FS_ATTRIBUTE_INFORMATION {
 NTSTATUS NTAPI RtlSetThreadErrorMode(IN ULONG NewMode, OUT PULONG OldMode);
 
 
-bool IsVolumeUnRecognized(std::wstring NtPath, std::wstring* FsName);
+NTSTATUS GetVolumeState(std::wstring NtPath, bool* IsRecognized, std::wstring* FsName);
 bool FormatVolume(LPCWSTR root, LPCWSTR fs, LPCWSTR label);
 
 
@@ -195,10 +195,18 @@ DWORD WINAPI CImDiskIO_Thread(LPVOID lpThreadParameter)
 	if (!Device.empty() && !m->Format.empty()) {
 
 		std::wstring Drive;
+        bool IsRecognized = false;
         std::wstring FsName;
 
-		if (!IsVolumeUnRecognized(Device, &FsName)) {
-			DbgPrint(L"The volume: %s was recognized as %s, format skipped.\n", FsName.c_str(), Device.c_str());
+        for (int i = 0; i < 10; i++)
+        {
+            Sleep(100 * i);
+            if(NT_SUCCESS(GetVolumeState(Device, &IsRecognized, &FsName)))
+                break;
+        }
+
+		if (IsRecognized) {
+			DbgPrint(L"The volume: %s was recognized as %s, format skipped.\n", Device.c_str(), FsName.c_str());
 		} 
 		else
 
@@ -235,7 +243,7 @@ DWORD WINAPI CImDiskIO_Thread(LPVOID lpThreadParameter)
                 //for (int i = 0; i < 3; i++) {
                     if (FormatVolume(Drive.c_str(), fs, label)) {
 
-                        if (!IsVolumeUnRecognized(Device, NULL)) // check success
+                        if (NT_SUCCESS(GetVolumeState(Device, &IsRecognized, NULL)) && IsRecognized) // check success
                             DbgPrint(L"Successfully Formatted: %s\n", m->Mount.c_str());
                         else {
                             DbgPrint(L"Failed to Format: %s\n", m->Mount.c_str());
@@ -260,7 +268,8 @@ DWORD WINAPI CImDiskIO_Thread(LPVOID lpThreadParameter)
     if (m->pSection) {
         wmemcpy(m->pSection->out.mount, Device.c_str(), Device.length() + 1);
         std::wstring FsName;
-        if (!IsVolumeUnRecognized(Device, &FsName)) {
+        bool IsRecognized = false;
+        if (NT_SUCCESS(GetVolumeState(Device, &IsRecognized, &FsName)) && IsRecognized) {
             wmemcpy(m->pSection->out.fs, FsName.c_str(), min(FsName.length(), 8) + 1);
             m->pSection->out.fs[8] = 0;
         }
@@ -408,7 +417,7 @@ int CImDiskIO::DoComm()
 
 extern "C" {
 
-bool IsVolumeUnRecognized(std::wstring NtPath, std::wstring* FsName)
+NTSTATUS GetVolumeState(std::wstring NtPath, bool* IsRecognized, std::wstring* FsName)
 {
     if (NtPath.back() != L'\\') NtPath.push_back(L'\\');
 
@@ -432,7 +441,9 @@ bool IsVolumeUnRecognized(std::wstring NtPath, std::wstring* FsName)
         NULL, 0);
     RtlSetThreadErrorMode(OldMode, 0i64);
 
-    if (NT_SUCCESS(status))
+    *IsRecognized = false;
+
+    if (NT_SUCCESS(status) && FsName)
     {
         union {
             FILE_FS_ATTRIBUTE_INFORMATION fsInfo;
@@ -441,19 +452,20 @@ bool IsVolumeUnRecognized(std::wstring NtPath, std::wstring* FsName)
         if (NT_SUCCESS(NtQueryVolumeInformationFile(handle, &iosb, &u.fsInfo, sizeof(u), FileFsAttributeInformation))) {
             u.fsInfo.FileSystemName[u.fsInfo.FileSystemNameLength / sizeof(wchar_t)] = 0;
             std::wstring fs(u.fsInfo.FileSystemName, u.fsInfo.FileSystemNameLength / sizeof(wchar_t));
-            DbgPrint(L"Recognized FileSystem: %s\n", fs.c_str());
-			if (FsName) *FsName = fs;
+			*FsName = fs;
         }
 
         NtClose(handle);
     }
 
-    if (status == STATUS_UNRECOGNIZED_VOLUME)
-        return true;
-
-    if (!NT_SUCCESS(status))
+    if (status == STATUS_UNRECOGNIZED_VOLUME) {
+        *IsRecognized = false;
+        status = STATUS_SUCCESS;
+    } else if (NT_SUCCESS(status))
+        *IsRecognized = true;
+    else
         DbgPrint(L"NtQueryVolumeInformationFile failed 0x%08X.\n", status);
-    return false;
+    return status;
 }
 
 // types from winfile

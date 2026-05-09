@@ -11,7 +11,7 @@ class CAccessRuleWnd : public QDialog
 	Q_OBJECT
 
 public:
-	CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr> Items, const QString& VolumeRoot = QString(), const QString& VolumeImage = QString(), QWidget *parent = Q_NULLPTR);
+	CAccessRuleWnd(const CAccessRulePtr& pRule, QSet<CProgramItemPtr> Items, const QString& VolumeRoot = QString(), const QString& VolumeImage = QString(), const QString& MountPoint = QString(), QWidget *parent = Q_NULLPTR);
 	~CAccessRuleWnd();
 
 	static QColor GetActionColor(EAccessRuleType Action);
@@ -50,6 +50,7 @@ protected:
 
 	QString m_VolumeRoot;
 	QString m_VolumeImage;
+	QString m_MountPoint;
 
 	QString m_Script;
 
