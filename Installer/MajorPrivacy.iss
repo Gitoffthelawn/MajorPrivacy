@@ -47,6 +47,7 @@ AlwaysRestart=no
 LicenseFile=.\license.txt
 UsedUserAreasWarning=no
 SetupIconFile=MajorPrivacyInstall.ico
+SignTool=sha256
 
 ; Handled in code section as always want DirPage for portable mode.
 DisableDirPage=no
