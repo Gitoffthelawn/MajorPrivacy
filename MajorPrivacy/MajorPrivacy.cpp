@@ -194,16 +194,16 @@ void CMajorPrivacy::UpdateTitle()
 	Title += " v" + Version;
 
 	if (!theCore->Service()->IsConnected())
-		Title += "   -   NOT CONNECTED";
+		Title += tr("   -   NOT CONNECTED");
 	
 	if (theCore->Driver()->IsConnected())
 	{
 		if (!g_CertInfo.active)
 		{
 			if(theCore->HasDriverRules())
-				Title += "   -   !!! WARNING: Rules are NOT being enforced (no valid license found) !!!";
+				Title += tr("   -   !!! WARNING: Rules are NOT being enforced (no valid license found) !!!");
 			else
-				Title += "   -   Free Mode";
+				Title += tr("   -   Free Mode");
 		}
 		else
 		{
@@ -235,7 +235,7 @@ void CMajorPrivacy::UpdateTitle()
 					CBuffer FP(8); // 64 bits
 					CEncryption::GetKeyFromPWOld(pInfo->PubKey, CBuffer(), FP, 1048576); // 2^20 iterations
 
-					Title += "   -   USER KEY: " + QByteArray((char*)FP.GetBuffer(), (int)FP.GetSize()).toHex().toUpper();
+					Title += tr("   -   USER KEY: ") + QByteArray((char*)FP.GetBuffer(), (int)FP.GetSize()).toHex().toUpper();
 				}
 				else
 				{
@@ -246,7 +246,7 @@ void CMajorPrivacy::UpdateTitle()
 					CBuffer Hash(64);
 					CHashFunction::Hash(pInfo->PubKey, Hash);
 
-					Title += "   -   USER KEY: " + QByteArray((char*)Hash.GetBuffer(), (int)Hash.GetSize()).toHex().toUpper();
+					Title += tr("   -   USER KEY: ") + QByteArray((char*)Hash.GetBuffer(), (int)Hash.GetSize()).toHex().toUpper();
 				}
 			}
 		}
@@ -259,6 +259,12 @@ void CMajorPrivacy::UpdateTitle()
 		m_pChangePassword->setEnabled(false);
 		m_pClearKeys->setEnabled(false);
 	}
+
+	if (theConf->GetBool("Options/ShowHostName", true))
+		Title += tr("   -   %1").arg(QHostInfo::localHostName());
+
+	if (IsElevated())
+		Title += tr(" (Administrator)");
 
 	setWindowTitle(Title);
 }
@@ -509,14 +515,15 @@ STATUS CMajorPrivacy::Connect()
 			.arg(CProcess::GetSecStateStr(theCore->GetSvcSecState()))
 			.arg(CProcess::GetSecStateStr(theCore->Driver()->GetCurProcSecState())), 30000);
 
-#ifndef _DEBUG
-		if (theCore->IsSvcHighSecurity() && (!theCore->Driver()->IsCurProcMaxSecurity() && (theCore->Driver()->IsCurProcHighSecurity() || theCore->Driver()->IsCurProcLowSecurity())) && !QApplication::arguments().contains("-sync"))
+//#ifndef _DEBUG
+		if (theCore->IsSvcHighSecurity() && (!theCore->Driver()->IsCurProcMaxSecurity() && (theCore->Driver()->IsCurProcHighSecurity() || theCore->Driver()->IsCurProcLowSecurity())) && !QApplication::arguments().contains("-sync_drv"))
+		//if (theCore->IsSvcHighSecurity() && !theCore->Driver()->IsCurProcDevTrusted() && !QApplication::arguments().contains("-sync_drv"))
 		{
 			((QtSingleApplication*)qApp->instance())->disableSingleApp();
 			QString CommandLine = "\"" + qApp->applicationFilePath().replace("/", "\\") + "\"";
 			for(int i = 1; i < qApp->arguments().size(); i++)
 				CommandLine += " \"" + QString(qApp->arguments().at(i)).replace("\"", "\"\"") + "\"";
-			CommandLine += " -sync";
+			CommandLine += " -sync_drv";
 
 			STATUS Status = theCore->StartProcessBySvc(CommandLine);
 			if(Status.IsError())
@@ -527,9 +534,10 @@ STATUS CMajorPrivacy::Connect()
 				return Status;
 			}
 		}
-#endif
+//#endif
 
-		if (!theCore->Driver()->TestDevAuthority()) 
+		//if (!theCore->Driver()->TestDevAuthority()) 
+		if (!theCore->Driver()->IsCurProcDevTrusted())
 			QMessageBox::critical(this, "MajorPrivacy", tr("MajorPrivacy's UI is not recognized by the driver!!!"));
 
 		// Log all user config dirs in the global config file for cleanup during uninstall
@@ -605,7 +613,7 @@ void CMajorPrivacy::changeEvent(QEvent* e)
 
 void CMajorPrivacy::closeEvent(QCloseEvent *e)
 {
-	if (!m_bExit)// && !theAPI->IsConnected())
+	if (!m_bExit && theCore->Service()->IsConnected())
 	{
 		QString OnClose = theConf->GetString("Options/OnClose", "ToTray");
 		if (m_pTrayIcon->isVisible() && OnClose.compare("ToTray", Qt::CaseInsensitive) == 0)
@@ -736,8 +744,8 @@ void CMajorPrivacy::timerEvent(QTimerEvent* pEvent)
 	if (m_ForgetSignerPW && m_ForgetSignerPW < CurTime)
 		m_ForgetSignerPW = 0;
 
-	if(!m_CachedPassword.isEmpty() && !(m_AutoCommitConf || m_ForgetSignerPW))
-		m_CachedPassword.clear();
+	if(!m_CachedPassword.IsEmpty() && !(m_AutoCommitConf || m_ForgetSignerPW))
+		m_CachedPassword.ClearPassword();
 
 
 	if (bVisible)
@@ -929,7 +937,20 @@ void CMajorPrivacy::BuildMenu()
 	m_pCreateVolume = m_pVolumes->addAction(QIcon(":/Icons/MountVolume.png"), tr("Create Volume"), this, SIGNAL(OnCreateVolume()));
 
 	m_pSecurity = menuBar()->addMenu(tr("Security"));
-	m_pUnloadProtection = m_pSecurity->addAction(QIcon(":/Icons/Shield15.png"), tr("Unload Protection"), this, SLOT(OnUnloadProtection()));
+	QIcon unloadProtIcon;
+	unloadProtIcon.addFile(":/Icons/Shield15.png", QSize(), QIcon::Normal, QIcon::Off);
+	/*QPixmap shieldOff(":/Icons/Shield15.png");
+	QPixmap stopOverlay(":/Icons/Stop.png");
+	{
+		QPainter painter(&shieldOff);
+		int overlaySize = shieldOff.width() / 2;
+		QRect targetRect(shieldOff.width() - overlaySize, shieldOff.height() - overlaySize, overlaySize, overlaySize);
+		painter.drawPixmap(targetRect, stopOverlay);
+	}
+	unloadProtIcon.addPixmap(shieldOff, QIcon::Normal, QIcon::On);*/
+	//unloadProtIcon.addPixmap(IconAddOverlay(QIcon(":/Icons/Shield15.png"), ":/Icons/Stop.png").pixmap(QSize()), QIcon::Normal, QIcon::On);
+	unloadProtIcon.addFile(":/Icons/Shield10.png", QSize(), QIcon::Normal, QIcon::On);
+	m_pUnloadProtection = m_pSecurity->addAction(unloadProtIcon, tr("Unload Protection"), this, SLOT(OnUnloadProtection()));
 	m_pUnloadProtection->setCheckable(true);
 	m_pSecurity->addSeparator();
 	m_pProtectConfig = m_pSecurity->addAction(QIcon(":/Icons/LockClosed.png"), tr("Enable Config Protection"), this, SLOT(OnProtectConfig()));
@@ -1458,7 +1479,7 @@ bool CMajorPrivacy::IsAlwaysOnTop() const
 	return m_bOnTop || theConf->GetBool("Options/AlwaysOnTop", false);
 }
 
-bool CMajorPrivacy__TryDecryptSigner(const CBuffer& Password, const SUserKeyInfoPtr& pInfo, int iKdf, class CPrivateKey& PrivateKey)
+bool CMajorPrivacy__TryDecryptSigner(const CSecurePassword& Password, const SUserKeyInfoPtr& pInfo, int iKdf, class CPrivateKey& PrivateKey)
 {
 	STATUS Status;
 
@@ -1506,7 +1527,7 @@ STATUS CMajorPrivacy::InitSigner(ESignerPurpose Purpose, class CPrivateKey& Priv
 	if (pInfo->InfoBlob.GetSize() > 0)
 		InfoData.FromPacket(&pInfo->InfoBlob);
 
-	QString Password;
+	CSecurePassword Password;
 	int iKdf = InfoData.Get(API_S_KDF).To<int>(-2);
 
 	switch (Purpose) {
@@ -1526,7 +1547,7 @@ STATUS CMajorPrivacy::InitSigner(ESignerPurpose Purpose, class CPrivateKey& Priv
 	}
 
 	int AutoLock = 0;
-	if (Password.isEmpty())
+	if (Password.IsEmpty())
 	{
 		QString Prompt;
 		switch (Purpose) {
@@ -1553,32 +1574,30 @@ STATUS CMajorPrivacy::InitSigner(ESignerPurpose Purpose, class CPrivateKey& Priv
 		if (theGUI->SafeExec(&window) != 1)
 			return STATUS_OK_CNCELED;
 		Password = window.GetPassword();
-		if (Password.isEmpty())
+		if (Password.IsEmpty())
 			return STATUS_OK_CNCELED;
 		iKdf = window.GetKdf();
 
 		AutoLock = window.GetAutoLock();
 	}
 
-	CBuffer PassBuff(Password.utf16(), Password.length() * sizeof(ushort), true);
-
 	int iFoundKdf = -2;
 	if (iKdf <= 0) {
-		if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, 0, PrivateKey))
+		if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, 0, PrivateKey))
 			iFoundKdf = 0;
 		if(iFoundKdf == -2) // legacy mode mp <= 0.99.7
-			if(CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, -1, PrivateKey))
+			if(CMajorPrivacy__TryDecryptSigner(Password, pInfo, -1, PrivateKey))
 				iFoundKdf = -1;
 	}
 
 	if (iKdf > 0 && iFoundKdf == -2) {
-		if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, iKdf, PrivateKey))
+		if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, iKdf, PrivateKey))
 			iFoundKdf = iKdf;
 	}
 	else
 	{
 		for (int i = 1; i <= 10 && iFoundKdf == -2; i++) {
-			if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, i, PrivateKey))
+			if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, i, PrivateKey))
 				iFoundKdf = i;
 		}
 	}
@@ -1696,10 +1715,10 @@ void CMajorPrivacy::OnUnloadProtection()
 	}
 }
 
-STATUS CMajorPrivacy__SetUserKey(const QString& Password, int iKdf, const CBuffer& PrivKey, const CBuffer& PubKey)
+STATUS CMajorPrivacy__SetUserKey(const CSecurePassword& Password, int iKdf, const CBuffer& PrivKey, const CBuffer& PubKey)
 {
 	CEncryption Encryption;
-	STATUS Status = Encryption.SetPassword(CBuffer(Password.utf16(), Password.length() * sizeof(ushort), true), PubKey, iKdf); // use public key as salt
+	STATUS Status = Encryption.SetPassword(Password, PubKey, iKdf); // use public key as salt
 	if (Status.IsError()) return Status;
 
 	CBuffer Hash;
@@ -1733,8 +1752,8 @@ STATUS CMajorPrivacy::MakeKeyPair(CPrivateKey* pPrivateKey)
 	CVolumeWindow window(tr("Set a secure Password to protect the new Private User Key."), CVolumeWindow::eSetPW, this);
 	if (theGUI->SafeExec(&window) != 1)
 		return ERR(STATUS_OK_CNCELED);
-	QString Password = window.GetPassword();
-	if(Password.isEmpty())
+	CSecurePassword Password = window.GetPassword();
+	if(Password.IsEmpty())
 		return ERR(STATUS_OK_CNCELED);
 	int iKdf = window.GetNewKdf();
 
@@ -1779,7 +1798,7 @@ void CMajorPrivacy::OnChangePassword()
 	if (pInfo->InfoBlob.GetSize() > 0)
 		InfoData.FromPacket(&pInfo->InfoBlob);
 
-	QString Password;
+	CSecurePassword Password;
 	int iKdf = InfoData.Get(API_S_KDF).To<int>(-2);
 
 	QString Prompt = tr("Change Secure Configuration Password");
@@ -1794,25 +1813,24 @@ void CMajorPrivacy::OnChangePassword()
 	iKdf = window.GetKdf();
 
 	CPrivateKey PrivateKey;
-	CBuffer PassBuff(Password.utf16(), Password.length() * sizeof(ushort), true);
 
 	int iFoundKdf = -2;
 	if (iKdf <= 0) {
-		if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, 0, PrivateKey))
+		if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, 0, PrivateKey))
 			iFoundKdf = 0;
 		if(iFoundKdf == -2) // legacy mode mp <= 0.99.7
-			if(CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, -1, PrivateKey))
+			if(CMajorPrivacy__TryDecryptSigner(Password, pInfo, -1, PrivateKey))
 				iFoundKdf = -1;
 	}
 
 	if (iKdf > 0 && iFoundKdf == -2) {
-		if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, iKdf, PrivateKey))
+		if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, iKdf, PrivateKey))
 			iFoundKdf = iKdf;
 	}
 	else
 	{
 		for (int i = 1; i <= 10 && iFoundKdf == -2; i++) {
-			if (CMajorPrivacy__TryDecryptSigner(PassBuff, pInfo, i, PrivateKey))
+			if (CMajorPrivacy__TryDecryptSigner(Password, pInfo, i, PrivateKey))
 				iFoundKdf = i;
 		}
 	}

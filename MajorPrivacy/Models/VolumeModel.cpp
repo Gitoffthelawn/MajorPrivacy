@@ -71,6 +71,10 @@ QList<QModelIndex>	CVolumeModel::Sync(const QList<CVolumePtr>& VolumeList)
 			pNode->IsGray = (pNode->pVolume->GetStatus() == CVolume::eFolder);
 			Changed = 2; // set change for all columns
 		}
+		if (pNode->IsBold != (pVolume->GetStatus() == CVolume::eMounted)) {
+			pNode->IsBold = (pVolume->GetStatus() == CVolume::eMounted);
+			Changed = 1; // set change for all columns
+		}
 
 		for (int section = 0; section < columnCount(); section++)
 		{
@@ -80,7 +84,11 @@ QList<QModelIndex>	CVolumeModel::Sync(const QList<CVolumePtr>& VolumeList)
 			QVariant Value;
 			switch (section)
 			{
+#ifdef _DEBUG
 			case eName:				Value = pVolume->GetDevicePath().isEmpty() ? pVolume->GetName() : tr("%1 (%2)").arg(pVolume->GetName()).arg(pVolume->GetDevicePath()); break;
+#else
+			case eName:				Value = pVolume->GetName(); break;
+#endif
 			case eStatus:			Value = pVolume->GetStatus(); break;
 			case eMountPoint:		Value = pVolume->GetMountPoint(); break;
 			case eTotalSize:		Value = pVolume->IsFolder() ? -1 : pVolume->GetVolumeSize() - pVolume->GetHeaderLen(); break;

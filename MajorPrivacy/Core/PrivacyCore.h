@@ -10,6 +10,7 @@
 #include "./Common/QtFlexGuid.h"
 #include "../../Library/Helpers/EvtUtil.h"
 #include "../../Framework/Core/MemoryPool.h"
+#include "../../Library/Crypto/SecurePassword.h"
 
 struct CIString 
 {
@@ -305,14 +306,14 @@ public:
 	RESULT(QtVariant)	GetVolumes();
 	RESULT(QtVariant)	GetVolume(const QFlexGuid& Guid);
 	STATUS				SetVolume(const QtVariant& Volume);
-	STATUS				MountVolume(const QString& Path, const QString& MountPoint, const QString& Password, bool bProtect, bool bLockdown, int iKfd = 0);
+	STATUS				MountVolume(const QString& Path, const QString& MountPoint, const CSecurePassword& Password, bool bProtect, bool bLockdown, int iKfd = 0);
 	STATUS				DismountVolume(const QString& MountPoint);
 	STATUS				DismountAllVolumes();
-	STATUS				CreateVolume(const QString& Path, const QString& Password, quint64 ImageSize = 0, const QString& Cipher = QString(), int iKfd = 0, const QString& FS = QString());
-	STATUS				ChangeVolumePassword(const QString& Path, const QString& OldPassword, const QString& NewPassword, int iKfd = 0, int iNewKfd = 0);
+	STATUS				CreateVolume(const QString& Path, const CSecurePassword& Password, quint64 ImageSize = 0, const QString& Cipher = QString(), int iKfd = 0, const QString& FS = QString());
+	STATUS				ChangeVolumePassword(const QString& Path, const CSecurePassword& OldPassword, const CSecurePassword& NewPassword, int iKfd = 0, int iNewKfd = 0);
 	STATUS				ExpandVolume(const QString& MountPoint, quint64 uAddSize);
-	STATUS				BackupVolumeHeader(const QString& Path, const QString& BackupPath, const QString& Password, int iKfd);
-	STATUS				RestoreVolumeHeader(const QString& Path, const QString& BackupPath, const QString& Password, int iKfd);
+	STATUS				BackupVolumeHeader(const QString& Path, const QString& BackupPath, const CSecurePassword& Password, int iKfd);
+	STATUS				RestoreVolumeHeader(const QString& Path, const QString& BackupPath, const CSecurePassword& Password, int iKfd);
 
 	// Tweak Manager
 	RESULT(QtVariant)	GetTweaks(uint32* pRevision = nullptr);
@@ -334,6 +335,8 @@ public:
 	void				ClearPrivacyLog();
 
 	RESULT(QtVariant)	GetServiceStats();
+
+	RESULT(CSecurePassword) RequestSecurePassword(const QString& Prompt, const QString& Title = QString(), bool bConfirm = false);
 
 	RESULT(QtVariant)	GetScriptLog(const QFlexGuid& Guid, EItemType Type, quint32 LastID = 0);
 	STATUS				ClearScriptLog(const QFlexGuid& Guid, EItemType Type);
@@ -367,6 +370,7 @@ public:
 	CSidResolver*		GetSidResolver() {return m_pSidResolver;}
 
 	static STATUS		InitHooks();
+	static void			RemoveHooks();
 
 signals:
 	void				ProgramsAdded();

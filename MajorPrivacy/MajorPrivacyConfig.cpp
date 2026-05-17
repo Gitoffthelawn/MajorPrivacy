@@ -478,7 +478,7 @@ void CMajorPrivacy::OnCommitConfig()
 	if (m_AutoCommitConf){
 		m_AutoCommitConf = 0;
 		if(!m_ForgetSignerPW)
-			m_CachedPassword.clear();
+			m_CachedPassword.ClearPassword();
 	}
 
 	if (bSvcDirty)
@@ -523,7 +523,7 @@ void CMajorPrivacy::OnDiscardConfig()
 	if (m_AutoCommitConf){
 		m_AutoCommitConf = 0;
 		if(!m_ForgetSignerPW)
-			m_CachedPassword.clear();
+			m_CachedPassword.ClearPassword();
 	}
 
 	Results.append(DiscardDrvConfig());

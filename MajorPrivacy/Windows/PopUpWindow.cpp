@@ -88,7 +88,10 @@ CPopUpWindow::CPopUpWindow(QWidget* parent) : QMainWindow(parent)
 	//flags |= Qt::Tool;
 	setWindowFlags(flags);
 
-	this->setWindowTitle(tr("MajorPrivacy Notifications"));
+	if (theConf->GetBool("Options/ShowHostName", true))
+		setWindowTitle(tr("MajorPrivacy - %1").arg(QHostInfo::localHostName()));
+	else
+		setWindowTitle(tr("MajorPrivacy Notifications"));
 
 	QWidget* centralWidget = new QWidget();
 	ui.setupUi(centralWidget);

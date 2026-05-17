@@ -240,15 +240,11 @@ extern "C" LIBRARY_EXPORT VOID RunElevatedW(HWND hwnd, HINSTANCE hinst, LPWSTR p
     shex.nShow = SW_SHOWNORMAL;
     shex.lpVerb = L"runas";
 
-	DWORD dwExitCode = -1;
+	DWORD dwExitCode = STILL_ACTIVE;
 
     if (ShellExecuteEx(&shex)) {
-        if (dwTimeOut) {
-            if (WaitForSingleObject(shex.hProcess, dwTimeOut) == WAIT_OBJECT_0)
-				GetExitCodeProcess(shex.hProcess, &dwExitCode);
-            else
-                dwExitCode = STILL_ACTIVE;
-        }
+        if (WaitForSingleObject(shex.hProcess, dwTimeOut) == WAIT_OBJECT_0)
+			GetExitCodeProcess(shex.hProcess, &dwExitCode);
         CloseHandle(shex.hProcess);
     }
     else

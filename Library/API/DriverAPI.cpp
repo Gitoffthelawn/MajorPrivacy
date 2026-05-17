@@ -358,8 +358,8 @@ STATUS CDriverAPI::InstallDrv(bool bAutoStart, uint32 TraceLogLevel)
     Params["TraceLevel"] = TraceLogLevel;
 #ifdef _DEBUG
     Params["AllowUserDev"] = TRUE;
-    Params["SignProbeAll"] = TRUE;
-    Params["AllowDebugging"] = TRUE;
+    Params["SignProbeAll"] = TRUE; 
+    Params["AllowDebugging"] = TRUE; // Required test signing mode to be enabled
 #endif
 
     uint32 uOptions = OPT_KERNEL_TYPE;
@@ -438,6 +438,11 @@ bool CDriverAPI::IsCurProcHighSecurity() const
 bool CDriverAPI::IsCurProcMaxSecurity() const
 {
     return ((m_CurProcSecState & KPH_PROCESS_STATE_MAXIMUM) == KPH_PROCESS_STATE_MAXIMUM);
+}
+
+bool CDriverAPI::IsCurProcDevTrusted() const
+{
+	return (m_CurProcSecState & 0x80000000) != 0;
 }
 
 RESULT(StVariant) CDriverAPI::Call(uint32 MessageId, const StVariant& Message, SCallParams* pParams)

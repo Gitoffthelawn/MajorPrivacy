@@ -172,7 +172,7 @@ cleanup:
     return status;
 }
 
-// Simple PBKDF2-HMAC-SHA256 fallback (password = HMAC key) — now uses the cached ctx
+// Simple PBKDF2-HMAC-SHA256 fallback (password = HMAC key) - now uses the cached ctx
 static NTSTATUS PBKDF2_HMAC_SHA256_Fallback(
     const BYTE* password, ULONG passwordLen,
     const BYTE* salt, ULONG saltLen,
@@ -392,14 +392,17 @@ NTSTATUS CEncryption::GetKeyFromPW(const CBuffer& password, const CBuffer& salt,
     return STATUS_UNSUCCESSFUL;
 }
 
-NTSTATUS CEncryption::SetPassword(const CBuffer& password, const CBuffer& salt, int iKdf)
+NTSTATUS CEncryption::SetPassword(const CSecurePassword& password, const CBuffer& salt, int iKdf)
 {
     if(!m)
         return STATUS_DEVICE_NOT_READY;
 
     m->Key.SetSize(0, true, 256/8);
 
-    NTSTATUS status = GetKeyFromPW(password, salt, m->Key, iKdf);
+    // Note: The buffer is "derived" meaning it does not hold or manage its own memoory, it just points to the password data inside CSecurePassword.
+	CBuffer pass((void*)password.GetPassword(), password.GetPasswordSize(), true);
+
+    NTSTATUS status = GetKeyFromPW(pass, salt, m->Key, iKdf);
     if( !NT_SUCCESS(status) )
 		return status; //ERR(status, L"Unable to derive the AES key from the password");
 
@@ -464,16 +467,22 @@ NTSTATUS CEncryption::InitCrypto()
     return status; // OK;
 }
 
-NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out)
+NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out, const CBuffer& iv)
 {
     if(!m)
         return STATUS_DEVICE_NOT_READY;
 
+    if (iv.GetSize() != 0 && iv.GetSize() != IV_SIZE)
+        return STATUS_INVALID_PARAMETER;
+
     NTSTATUS status;
 
-    DWORD TempInitVectorLength = 128/8;
-    CScopedHandleEx<BYTE*, void(*)(BYTE* p, CEncryption* This), CEncryption*> TempInitVector((BYTE*)Alloc(TempInitVectorLength), [](BYTE* p, CEncryption* This) {This->Free(p);}, this);
-    memset(TempInitVector, 0, TempInitVectorLength);
+    // Use provided IV or default to all zeros
+    BYTE TempInitVector[IV_SIZE];
+    if (iv.GetSize() == IV_SIZE)
+        memcpy(TempInitVector, iv.GetBuffer(), IV_SIZE);
+    else
+        memset(TempInitVector, 0, IV_SIZE);
 
     DWORD CipherTextLength = 0;
     status = BCryptEncrypt(
@@ -482,7 +491,7 @@ NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out)
         (ULONG)in.GetSize(),        // Size of the buffer in bytes
         NULL,                       // A pointer to padding info, used with asymmetric and authenticated encryption; else set to NULL
         TempInitVector,             // Address of the buffer that contains the IV. 
-        TempInitVectorLength,       // Size of the IV buffer in bytes
+        IV_SIZE,                    // Size of the IV buffer in bytes
         NULL,                       // Address of the buffer the recieves the ciphertext
         0,                          // Size of the buffer in bytes
         &CipherTextLength,          // Variable that recieves number of bytes copied to ciphertext buffer 
@@ -492,6 +501,12 @@ NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out)
 
     out.SetSize(0, true, CipherTextLength);
 
+    // Reset IV since it was modified
+    if (iv.GetSize() == IV_SIZE)
+        memcpy(TempInitVector, iv.GetBuffer(), IV_SIZE);
+    else
+        memset(TempInitVector, 0, IV_SIZE);
+
     DWORD ResultLength = 0;
     status = BCryptEncrypt(
         m->KeyHandle,               // Handle to a key which is used to encrypt 
@@ -499,7 +514,7 @@ NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out)
         (ULONG)in.GetSize(),        // Size of the buffer in bytes
         NULL,                       // A pointer to padding info, used with asymmetric and authenticated encryption; else set to NULL
         TempInitVector,             // Address of the buffer that contains the IV. 
-        TempInitVectorLength,       // Size of the IV buffer in bytes
+        IV_SIZE,                    // Size of the IV buffer in bytes
         (PUCHAR)out.GetBuffer(),    // Address of the buffer the recieves the ciphertext
         CipherTextLength,           // Size of the buffer in bytes
         &ResultLength,              // Variable that recieves number of bytes copied to ciphertext buffer 
@@ -512,13 +527,22 @@ NTSTATUS CEncryption::Encrypt(const CBuffer& in, CBuffer& out)
     return status; //OK;
 }
 
-NTSTATUS CEncryption::Decrypt(const CBuffer& in, CBuffer& out)
+NTSTATUS CEncryption::Decrypt(const CBuffer& in, CBuffer& out, const CBuffer& iv)
 {
+    if(!m)
+        return STATUS_DEVICE_NOT_READY;
+
+    if (iv.GetSize() != 0 && iv.GetSize() != IV_SIZE)
+        return STATUS_INVALID_PARAMETER;
+
     NTSTATUS status;
 
-    DWORD TempInitVectorLength = 128/8;
-    CScopedHandleEx<BYTE*, void(*)(BYTE* p, CEncryption* This), CEncryption*> TempInitVector((BYTE*)Alloc(TempInitVectorLength), [](BYTE* p, CEncryption* This) {This->Free(p);}, this);
-    memset(TempInitVector, 0, TempInitVectorLength);
+    // Use provided IV or default to all zeros
+    BYTE TempInitVector[IV_SIZE];
+    if (iv.GetSize() == IV_SIZE)
+        memcpy(TempInitVector, iv.GetBuffer(), IV_SIZE);
+    else
+        memset(TempInitVector, 0, IV_SIZE);
 
     DWORD PlainTextLength = 0;
     status = BCryptDecrypt(
@@ -527,7 +551,7 @@ NTSTATUS CEncryption::Decrypt(const CBuffer& in, CBuffer& out)
         (ULONG)in.GetSize(),        // Size of the buffer in bytes
         NULL,                       // A pointer to padding info, used with asymmetric and authenticated encryption; else set to NULL
         TempInitVector,             // Address of the buffer that contains the IV. 
-        TempInitVectorLength,       // Size of the IV buffer in bytes
+        IV_SIZE,                    // Size of the IV buffer in bytes
         NULL,                       // Address of the buffer the recieves the ciphertext
         0,                          // Size of the buffer in bytes
         &PlainTextLength,           // Variable that recieves number of bytes copied to ciphertext buffer 
@@ -537,6 +561,12 @@ NTSTATUS CEncryption::Decrypt(const CBuffer& in, CBuffer& out)
 
     out.SetSize(0, true, PlainTextLength);
 
+    // Reset IV since it was modified
+    if (iv.GetSize() == IV_SIZE)
+        memcpy(TempInitVector, iv.GetBuffer(), IV_SIZE);
+    else
+        memset(TempInitVector, 0, IV_SIZE);
+
     DWORD ResultLength = 0;
     status = BCryptDecrypt(
         m->KeyHandle,               // Handle to a key which is used to encrypt 
@@ -544,7 +574,7 @@ NTSTATUS CEncryption::Decrypt(const CBuffer& in, CBuffer& out)
         (ULONG)in.GetSize(),        // Size of the buffer in bytes
         NULL,                       // A pointer to padding info, used with asymmetric and authenticated encryption; else set to NULL
         TempInitVector,             // Address of the buffer that contains the IV. 
-        TempInitVectorLength,       // Size of the IV buffer in bytes
+        IV_SIZE,                    // Size of the IV buffer in bytes
         (PUCHAR)out.GetBuffer(),    // Address of the buffer the recieves the ciphertext
         PlainTextLength,            // Size of the buffer in bytes
         &ResultLength,              // Variable that recieves number of bytes copied to ciphertext buffer 

@@ -49,6 +49,7 @@
 #define IMDISK_TYPE_FILE                0x00000100
 #define IMDISK_TYPE_VM                  0x00000200
 #define IMDISK_TYPE_PROXY               0x00000300
+#define IMDISK_TYPE_USER                0x00000400
 #define IMDISK_TYPE(x)                  ((ULONG)(x) & 0x00000F00)
 
 typedef struct _IMDISK_CREATE_DATA

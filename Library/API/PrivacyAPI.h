@@ -124,6 +124,9 @@ enum {
 
 #define API_SERVICE_PIPE	    L"\\\\.\\pipe\\" API_SERVICE_NAME L"Pipe"
 
+#define API_WORKER_READY_EVENT  L"Local\\" API_SERVICE_NAME L"ReadyEvent"
+#define API_SERVICE_READY_EVENT L"Global\\" API_SERVICE_NAME L"ReadyEvent"
+
 enum {
 	SVC_API_GET_VERSION = 'VERS',
 
@@ -267,6 +270,9 @@ enum {
 	SVC_API_CALL_SCRIPT_FUNC = 'CSCF',
 
 	SVC_API_SHOW_SECURE_PROMPT = 'SSPT',
+
+	// key exchange
+	SVC_API_KEY_EXCHANGE = 'KYEX',
 
 	// shutdown
 	SVC_API_SHUTDOWN = 'SHUT',
@@ -822,8 +828,23 @@ API_V_VALUES : unsigned long
 	API_V_MB_TYPE = 'mbty',
 	API_V_MB_CODE = 'mbec',
 
+	API_V_PASSWORD = 'pass',
+
+	// Password dialog localization (optional)
+	API_V_PW_LBL_PASSWORD = 'pwlp',  // "Password:" label
+	API_V_PW_LBL_CONFIRM  = 'pwlc',  // "Confirm:" label
+	API_V_PW_LBL_SHOW     = 'pwls',  // Show password tooltip
+	API_V_PW_BTN_OK       = 'pwok',  // "OK" button
+	API_V_PW_BTN_CANCEL   = 'pwca',  // "Cancel" button
+	API_V_PW_ERR_MISMATCH = 'pwer',  // "Passwords do not match!" error
+	API_V_PW_ERR_TOLONG   = 'pwtl',  // "Password is too long!" error
+
 	API_V_LAST = 0x80000000
 };
+
+// Password dialog types (for API_V_MB_TYPE in SVC_API_SHOW_SECURE_PROMPT)
+#define PDLG_ENTER_PW    0x100   // Single password entry
+#define PDLG_CONFIRM_PW  0x200   // Password with confirmation field
 
 
 

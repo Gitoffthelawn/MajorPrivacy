@@ -216,6 +216,7 @@ public:
 	bool IsCurProcLowSecurity() const;
 	bool IsCurProcHighSecurity() const;
 	bool IsCurProcMaxSecurity() const;
+	bool IsCurProcDevTrusted() const;
 
 	RESULT(StVariant) Call(uint32 MessageId, const StVariant& Message, struct SCallParams* pParams = NULL);
 

@@ -8,6 +8,7 @@
 #include "../MiscHelpers/Common/CustomTheme.h"
 #include "../MiscHelpers/Common/ProgressDialog.h"
 #include <QTranslator>
+#include "../Library/Crypto/SecurePassword.h"
 
 class CHomePage;
 class CEnclavePage;
@@ -390,7 +391,7 @@ protected:
 	bool				m_DrvConfigLocked = false;
 	quint64				m_ForgetSignerPW = 0;
 	quint64				m_AutoCommitConf = 0;
-	QString				m_CachedPassword; // todo replace with a secure storeage object
+	CSecurePassword		m_CachedPassword;
 	int					m_CachedKdf = 0;
 
 public:

@@ -184,6 +184,8 @@ CSettingsWindow::CSettingsWindow(QWidget* parent)
 
 	connect(ui.chkEnumApps, SIGNAL(clicked(bool)), this, SLOT(OnOptChanged()));
 
+	connect(ui.chkShowHost, SIGNAL(stateChanged(int)), this, SLOT(OnChangeGUI()));
+
 	connect(ui.chkEncryptSwap, SIGNAL(clicked(bool)), this, SLOT(OnOptChanged()));
 	connect(ui.chkGuardSuspend, SIGNAL(clicked(bool)), this, SLOT(OnOptChanged()));
 
@@ -690,6 +692,8 @@ void CSettingsWindow::LoadSettings()
 
 	ui.chkEnumApps->setChecked(theCore->GetConfigBool("Service/EnumInstallations", true));
 
+	ui.chkShowHost->setChecked(theConf->GetBool("Options/ShowHostName", true));
+
 	ui.chkEncryptSwap->setChecked(theCore->GetConfigBool("Service/EncryptPageFile", false));
 	ui.chkGuardSuspend->setChecked(theCore->GetConfigBool("Service/GuardHibernation", false));
 
@@ -846,6 +850,8 @@ void CSettingsWindow::SaveSettings()
 	}
 
 	theCore->SetConfig("Service/EnumInstallations", ui.chkEnumApps->isChecked());
+
+	theConf->SetValue("Options/ShowHostName", ui.chkShowHost->isChecked());
 
 	theCore->SetConfig("Service/EncryptPageFile", ui.chkEncryptSwap->isChecked());
 	theCore->SetConfig("Service/GuardHibernation", ui.chkGuardSuspend->isChecked());

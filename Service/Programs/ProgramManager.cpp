@@ -1026,7 +1026,7 @@ STATUS CProgramManager::RemoveProgramFrom(uint64 UID, uint64 ParentUID, bool bDe
 	std::unique_lock lock(pItem->m_Mutex);
 	RemoveProgramImpl(UID);
 
-	EmitChangeEvent(CFlexGuid(pItem->GetUID()) , pItem->GetName(), EConfigEvent::eRemoved);
+	EmitChangeEvent(CFlexGuid(pItem->GetUID()) , pItem->GetNameEx(), EConfigEvent::eRemoved);
 	return OK;
 }
 

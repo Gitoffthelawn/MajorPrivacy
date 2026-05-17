@@ -206,7 +206,7 @@ void CVolumeView::MountVolume(QString Path, CVolumePtr pVolume)
 	CVolumeWindow window(tr("Mount Secure Volume"), CVolumeWindow::eMount, this);
 	if (theGUI->SafeExec(&window) != 1)
 		return;
-	QString Password = window.GetPassword();
+	CSecurePassword Password = window.GetPassword();
 	QString MountPoint = window.GetMountPoint();
 	bool bProtect = window.UseProtection();
 	bool bLockdown = window.UseLockdown();
@@ -299,8 +299,8 @@ void CVolumeView::OnChangeVolumePassword()
 	CVolumeWindow window(tr("Change Volume Password."), CVolumeWindow::eChange, this);
 	if (theGUI->SafeExec(&window) != 1)
 		return;
-	QString OldPassword = window.GetPassword();
-	QString NewPassword = window.GetNewPassword();
+	CSecurePassword OldPassword = window.GetPassword();
+	CSecurePassword NewPassword = window.GetNewPassword();
 	int iOldKdf = window.GetKdf();
 	int iNewKdf = window.GetNewKdf();
 
@@ -328,7 +328,7 @@ void CVolumeView::OnBackupVolumeHeader()
 	CVolumeWindow window(tr("Enter the volume password to backup the header."), CVolumeWindow::eGetPW, this);
 	if (theGUI->SafeExec(&window) != 1)
 		return;
-	QString Password = window.GetPassword();
+	CSecurePassword Password = window.GetPassword();
 	int iKdf = window.GetKdf();
 
 	RunVolumeOperation(tr("Backing up volume header..."), [=]() {
@@ -360,7 +360,7 @@ void CVolumeView::OnRestoreVolumeHeader()
 	CVolumeWindow window(tr("Enter the password used when the header backup was created."), CVolumeWindow::eGetPW, this);
 	if (theGUI->SafeExec(&window) != 1)
 		return;
-	QString Password = window.GetPassword();
+	CSecurePassword Password = window.GetPassword();
 	int iKdf = window.GetKdf();
 
 	RunVolumeOperation(tr("Restoring volume header..."), [=]() {

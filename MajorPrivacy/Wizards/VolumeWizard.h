@@ -2,6 +2,8 @@
 
 #include <QWizard>
 
+#include "../../Library/Crypto/SecurePassword.h"
+
 QT_BEGIN_NAMESPACE
 class QCheckBox;
 class QLabel;
@@ -25,7 +27,7 @@ public:
     static bool ShowWizard(QWidget* parent = nullptr);
 
     QString GetVolumePath() const;
-    QString GetPassword() const;
+    CSecurePassword GetPassword() const;
     quint64 GetImageSize() const;
     QString GetCipher() const;
     QString GetFileSystem() const;
@@ -171,17 +173,24 @@ public:
     bool isComplete() const override;
     bool validatePage() override;
 
+    CSecurePassword GetPassword() const;
+
 private slots:
     void OnShowPassword();
     void OnPasswordChanged();
+    void OnSecurePasswordEntry();
 
 private:
     QLabel* m_pTopLabel;
     QLineEdit* m_pPassword;
     QLineEdit* m_pConfirmPassword;
     QCheckBox* m_pShowPassword;
+    QToolButton* m_pSecureEntryBtn;
     QLabel* m_pStrengthLabel;
     CPasswordStrengthWidget* m_pStrengthWidget;
+
+    // Secure password entry state
+    CSecurePassword m_SecurePassword;
 };
 
 #if 0

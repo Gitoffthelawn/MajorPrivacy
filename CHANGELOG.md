@@ -2,12 +2,29 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [0.99.10] - 2026-05-17
+
+### Added
+- added secure desktop password prompt option
+- add app folder protection
+- addes secure password handling
+- added option ti display the computer name in the main and notification window title bar
+
+### Fixed 
+- fixed minor UI glitches
+- fixed removed programs sometimes re-appiearing after restart from the outdated records
+- fixed instalelr issues
+
+
+
+
 ## [0.99.9] - 2026-05-09
 
 ### Added
 - added user column to access log
 
-### fixed 
+### Fixed 
 - fixed issue causing the UI sometimes to not be recognized by the driver as a protected process
 - fixed user name in rules not being properly saved and applied
 - fixed issues with config recovery after failed boots

@@ -91,7 +91,7 @@ CPasswordStrengthWidget::CPasswordStrengthWidget(QWidget* parent)
     UpdateDisplay();
 }
 
-void CPasswordStrengthWidget::SetPassword(const QString& password)
+void CPasswordStrengthWidget::SetPassword(const CSecurePassword& password)
 {
     PasswordInfo info;
     CheckPassword(password, info);
@@ -114,14 +114,12 @@ void CPasswordStrengthWidget::SetKdfValue(int kdfValue)
     m_KdfValue = kdfValue;
 }
 
-QString CPasswordStrengthWidget::GetPasswordStatusText(const QString& password, const QString& confirm)
+QString CPasswordStrengthWidget::GetPasswordStatusText(const CSecurePassword& password)
 {
-    int length = password.length();
+    int length = password.GetPasswordLength();
 
-    if (!confirm.isEmpty() && password != confirm) {
-        return tr("<span style='color:red;'>Passwords do not match!</span>");
-    } else if (length > 128) {
-        return tr("<span style='color:red;'>Password is too long. Maximum length is 128 characters.</span>");
+    if (length > MAX_SEC_PASSWORD) {
+        return tr("<span style='color:red;'>Password is too long. Maximum length is %1 characters.</span>").arg(MAX_SEC_PASSWORD);
     } else if (length > 0 && length < 8) {
         return tr("<span style='color:red;'>Password is very weak. Please use at least 8 characters.</span>");
     } else if (length >= 8 && length < 12) {
@@ -134,14 +132,14 @@ QString CPasswordStrengthWidget::GetPasswordStatusText(const QString& password, 
     return QString();
 }
 
-void CPasswordStrengthWidget::CheckPassword(const QString& password, PasswordInfo& info)
+void CPasswordStrengthWidget::CheckPassword(const CSecurePassword& password, PasswordInfo& info)
 {
     info.flags = 0;
-    info.length = password.length();
+    info.length = password.GetPasswordLength();
     int chars = 0;
 
-    for (int i = 0; i < password.length(); i++) {
-        QChar c = password[i];
+    for (int i = 0; i < password.GetPasswordLength(); i++) {
+        QChar c = password.GetPassword()[i];
         ushort code = c.unicode();
 
         if (c >= 'a' && c <= 'z') {

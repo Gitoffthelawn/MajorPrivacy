@@ -500,7 +500,7 @@ RESULT(std::shared_ptr<CVolume>) MountImDisk(const std::wstring& ImageFile, cons
     if(hEvent) 
         CloseHandle(hEvent);
 
-    memset(pSpace, 0, sizeof(pSpace));
+    SecureZeroMemory(pSpace, sizeof(pSpace));
 
     if (Result.IsError())
         return Result;
@@ -614,9 +614,12 @@ STATUS CVolumeManager::Update()
     return STATUS_SUCCESS;
 }
 
-STATUS CVolumeManager::CreateImage(const std::wstring& Path, const std::wstring& Password, uint64 uSize, const std::wstring& Cipher, int iKdf, const std::wstring& FS)
+STATUS CVolumeManager::CreateImage(const std::wstring& Path, const CSecurePassword& Password, uint64 uSize, const std::wstring& Cipher, int iKdf, const std::wstring& FS)
 {
-    auto Res = MountImDisk(Path, Password.c_str(), iKdf, Cipher, uSize, L"", 0, FS);
+    if(Password.IsEmpty())
+        return STATUS_INVALID_PARAMETER;
+
+    auto Res = MountImDisk(Path, Password.GetPassword(), iKdf, Cipher, uSize, L"", 0, FS);
     if(Res.IsError())
         return Res;
 
@@ -654,8 +657,11 @@ STATUS CVolumeManager::CreateImage(const std::wstring& Path, const std::wstring&
 //    return ExecImDisk(Path, Password.c_str(), iKdf, cmd);
 //}
 
-STATUS CVolumeManager::MountImage(const std::wstring& Path, const std::wstring& MountPoint, const std::wstring& Password, bool bProtect, bool bLockdown, int iKdf)
+STATUS CVolumeManager::MountImage(const std::wstring& Path, const std::wstring& MountPoint, const CSecurePassword& Password, bool bProtect, bool bLockdown, int iKdf)
 {
+    if(Password.IsEmpty())
+        return STATUS_INVALID_PARAMETER;
+
     auto Guid = CVolume::GetGuidFromPath(Path);
 
     if(GetVolume(Guid))
@@ -721,7 +727,7 @@ STATUS CVolumeManager::MountImage(const std::wstring& Path, const std::wstring& 
     // Mount Volume
     //
 
-    auto Res = MountImDisk(Path, Password.c_str(), iKdf, L"", 0, MountPoint, Number);
+    auto Res = MountImDisk(Path, Password.GetPassword(), iKdf, L"", 0, MountPoint, Number);
     if (Res.IsError()) {
         if(!ruleGuid.empty())
             theCore->AccessManager()->RemoveRule(ruleGuid, LockDownToken);

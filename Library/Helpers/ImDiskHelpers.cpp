@@ -228,8 +228,8 @@ std::wstring ImDiskQueryDeviceProxy(const std::wstring& DevicePath)
 
         if (ImDiskQueryDevice(device, &u.create_data, sizeof(u.buffer)))
         {
-            if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
-                proxy = std::wstring(u.create_data.FileName, u.create_data.FileNameLength / sizeof(wchar_t));
+            //if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
+            proxy = std::wstring(u.create_data.FileName, u.create_data.FileNameLength / sizeof(wchar_t));
         }
 
         CloseHandle(device);
@@ -252,8 +252,8 @@ ULONGLONG ImDiskQueryDeviceSize(const std::wstring& DevicePath)
 
         if (ImDiskQueryDevice(device, &u.create_data, sizeof(u.buffer)))
         {
-            if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
-                size = u.create_data.DiskGeometry.Cylinders.QuadPart;
+            //if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
+            size = u.create_data.DiskGeometry.Cylinders.QuadPart;
         }
 
         CloseHandle(device);
@@ -276,8 +276,8 @@ WCHAR ImDiskQueryDriveLetter(const std::wstring& DevicePath)
 
         if (ImDiskQueryDevice(device, &u.create_data, sizeof(u.buffer)))
         {
-            if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
-                Letter = u.create_data.DriveLetter;
+            //if (IMDISK_TYPE(u.create_data.Flags) == IMDISK_TYPE_PROXY)
+            Letter = u.create_data.DriveLetter;
         }
 
         CloseHandle(device);

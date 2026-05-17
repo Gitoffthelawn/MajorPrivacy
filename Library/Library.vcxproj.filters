@@ -252,6 +252,9 @@
     <ClInclude Include="IPC\PipeServer.h">
       <Filter>IPC</Filter>
     </ClInclude>
+    <ClInclude Include="IPC\ServerReadyEvent.h">
+      <Filter>IPC</Filter>
+    </ClInclude>
     <ClInclude Include="IPC\PortMessage.h">
       <Filter>IPC</Filter>
     </ClInclude>
@@ -347,6 +350,12 @@
     </ClInclude>
     <ClInclude Include="Crypto\Argon2\defines.h">
       <Filter>Crypto\Argon2</Filter>
+    </ClInclude>
+    <ClInclude Include="Crypto\KeyExchange.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="Crypto\SecurePassword.h">
+      <Filter>Crypto</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -489,6 +498,9 @@
       <Filter>IPC</Filter>
     </ClCompile>
     <ClCompile Include="IPC\PipeServer.cpp">
+      <Filter>IPC</Filter>
+    </ClCompile>
+    <ClCompile Include="IPC\ServerReadyEvent.cpp">
       <Filter>IPC</Filter>
     </ClCompile>
     <ClCompile Include="API\ServiceAPI.cpp">
@@ -637,6 +649,12 @@
     </ClCompile>
     <ClCompile Include="Crypto\Argon2\blake2\blake2b.c">
       <Filter>Crypto\Argon2\blake2</Filter>
+    </ClCompile>
+    <ClCompile Include="Crypto\KeyExchange.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="Crypto\SecurePassword.cpp">
+      <Filter>Crypto</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

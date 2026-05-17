@@ -29,6 +29,8 @@
 #include "../Library/Helpers/TokenUtil.h"
 #include "Enclaves/EnclaveManager.h"
 #include "Presets/PresetManager.h"
+#include "../Library/Helpers/ImDiskHelpers.h"
+#include "Helpers/SecDeskHelper.h"
 
 void CServiceCore::RegisterUserAPI()
 {
@@ -169,7 +171,9 @@ void CServiceCore::RegisterUserAPI()
 	server->RegisterHandler(SVC_API_CALL_SCRIPT_FUNC, &CServiceCore::OnRequest, this);
 
 	server->RegisterHandler(SVC_API_SHOW_SECURE_PROMPT, &CServiceCore::OnRequest, this);
-	
+
+	server->RegisterHandler(SVC_API_KEY_EXCHANGE, &CServiceCore::OnRequest, this);
+
 	server->RegisterHandler(SVC_API_SHUTDOWN, &CServiceCore::OnRequest, this);
 
 #undef server
@@ -1361,7 +1365,10 @@ uint32 CServiceCore::OnRequest(uint32 msgId, const CBuffer* req, CBuffer* rpl, c
 			StVariant vReq(m_pMemPool);
 			vReq.FromPacket(req);
 
-			STATUS Status = m_pVolumeManager->CreateImage(vReq[API_V_VOL_PATH], vReq[API_V_VOL_PASSWORD], vReq.Get(API_V_VOL_SIZE).To<uint64>(0), vReq.Get(API_V_VOL_CIPHER).AsStr(), vReq.Get(API_V_VOL_KDF).To<uint32>(0), vReq.Get(API_V_VOL_FS).AsStr());
+			CSecurePassword Password;
+			Password.FromVariant(vReq[API_V_VOL_PASSWORD], pClientData->SharedSecret);
+
+			STATUS Status = m_pVolumeManager->CreateImage(vReq[API_V_VOL_PATH], Password, vReq.Get(API_V_VOL_SIZE).To<uint64>(0), vReq.Get(API_V_VOL_CIPHER).AsStr(), vReq.Get(API_V_VOL_KDF).To<uint32>(0), vReq.Get(API_V_VOL_FS).AsStr());
 			RETURN_STATUS(Status);
 		}
 		//case SVC_API_VOL_CHANGE_PASSWORD:
@@ -1418,7 +1425,10 @@ uint32 CServiceCore::OnRequest(uint32 msgId, const CBuffer* req, CBuffer* rpl, c
 			StVariant vReq(m_pMemPool);
 			vReq.FromPacket(req);
 
-			STATUS Status = m_pVolumeManager->MountImage(vReq[API_V_VOL_PATH], vReq[API_V_VOL_MOUNT_POINT], vReq[API_V_VOL_PASSWORD], vReq.Get(API_V_VOL_PROTECT).To<bool>(), vReq.Get(API_V_VOL_LOCKDOWN).To<bool>(), vReq.Get(API_V_VOL_KDF).To<uint32>(0));
+			CSecurePassword Password;
+			Password.FromVariant(vReq[API_V_VOL_PASSWORD], pClientData->SharedSecret);
+
+			STATUS Status = m_pVolumeManager->MountImage(vReq[API_V_VOL_PATH], vReq[API_V_VOL_MOUNT_POINT], Password, vReq.Get(API_V_VOL_PROTECT).To<bool>(), vReq.Get(API_V_VOL_LOCKDOWN).To<bool>(), vReq.Get(API_V_VOL_KDF).To<uint32>(0));
 			RETURN_STATUS(Status);
 		}
 		case SVC_API_VOL_DISMOUNT_VOLUME:
@@ -1756,72 +1766,198 @@ uint32 CServiceCore::OnRequest(uint32 msgId, const CBuffer* req, CBuffer* rpl, c
 			vReq.FromPacket(req);
 
 			std::wstring Text = vReq[API_V_MB_TEXT].AsStr();
-			//std::wstring Title = vReq.Get(API_V_MB_TITLE).AsStr();
-			//if(Title.empty()) Title = L"MajorPrivacy";
+			std::wstring Title = vReq.Get(API_V_MB_TITLE).AsStr();
+			if(Title.empty()) Title = L"MajorPrivacy";
 			uint32 Type = vReq[API_V_MB_TYPE].To<uint32>();
-		
+
 			CScopedHandle<HANDLE, BOOL(*)(HANDLE)> hToken(NULL, CloseHandle);
-			if (OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken)) 
+			if (OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
 			{
 				CScopedHandle<HANDLE, BOOL(*)(HANDLE)> hNewToken(NULL, CloseHandle);
-				if (DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hNewToken)) 
+				if (DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hNewToken))
 				{
 					// Set the new session ID on the duplicated token
-					if (SetTokenInformation(hNewToken, TokenSessionId, (LPVOID)&pClient.SessionId, sizeof(pClient.SessionId))) 
+					if (SetTokenInformation(hNewToken, TokenSessionId, (LPVOID)&pClient.SessionId, sizeof(pClient.SessionId)))
 					{
 						wchar_t szPath[MAX_PATH];
 						GetModuleFileNameW(NULL, szPath, ARRAYSIZE(szPath));
 						std::wstring CmdLine = L"\"" + std::wstring(szPath) + L"\"";
 
-						CmdLine += L" \"-MSGBOX:";
-
-						switch (Type & 0xF) {
-						case MB_OK: CmdLine += L"OK"; break;
-						case MB_OKCANCEL: CmdLine += L"OKCANCEL"; break;
-						case MB_ABORTRETRYIGNORE: CmdLine += L"ABORTRETRYIGNORE"; break;
-						case MB_YESNOCANCEL: CmdLine += L"YESNOCANCEL"; break;
-						case MB_YESNO: CmdLine += L"YESNO"; break;
-						case MB_RETRYCANCEL: CmdLine += L"RETRYCANCEL"; break;
-						case MB_CANCELTRYCONTINUE: CmdLine += L"CANCELTRYCONTINUE"; break;
-						}
-
-						switch (Type & 0xF0) {
-						case MB_ICONHAND: CmdLine += L"-STOP"; break;
-						case MB_ICONQUESTION: CmdLine += L"-QUESTION"; break;
-						case MB_ICONEXCLAMATION: CmdLine += L"-EXCLAMATION"; break;
-						case MB_ICONASTERISK: CmdLine += L"-INFORMATION"; break;
-						}
-
-						CmdLine += L":" + Text + L"\"";
-
-						STARTUPINFOW si = { 0 };
-						si.cb = sizeof(si);
-						si.dwFlags = STARTF_FORCEOFFFEEDBACK;
-						si.wShowWindow = SW_SHOWNORMAL;
-						PROCESS_INFORMATION pi = { 0 };
-						if (CreateProcessAsUserW(hNewToken, NULL, (wchar_t*)CmdLine.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+						//
+						// Password Dialog - uses section-based IPC
+						//
+						if (Type & 0x0F00)
 						{
-							if (WaitForSingleObject(pi.hProcess, INFINITE) == 0)
-							{
-								DWORD Code = 0;
-								if (GetExitCodeProcess(pi.hProcess, &Code))
-								{
-									StVariant vRpl(m_pMemPool);
-									vRpl[API_V_MB_CODE] = (uint32)Code;
-									vRpl.ToPacket(rpl);
+							HANDLE hSection = NULL;
+							PVOID pMapping = NULL;
 
-									status = STATUS_SUCCESS;
+							status = CreateSecureSection(&hSection, &pMapping, sizeof(SPasswordPromptSection));
+							if (NT_SUCCESS(status))
+							{
+								// Fill section with input data
+								SPasswordPromptSection* pSection = (SPasswordPromptSection*)pMapping;
+								memset(pSection, 0, sizeof(SPasswordPromptSection));
+								pSection->in.uType = Type;
+								wcsncpy_s(pSection->in.szPrompt, Text.c_str(), _TRUNCATE);
+								wcsncpy_s(pSection->in.szTitle, Title.c_str(), _TRUNCATE);
+								pSection->out.status = STATUS_UNSUCCESSFUL;
+
+								// Copy optional localized strings (empty = use English defaults)
+								std::wstring Str;
+								Str = vReq.Get(API_V_PW_LBL_PASSWORD).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szLblPassword, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_LBL_CONFIRM).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szLblConfirm, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_LBL_SHOW).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szLblShow, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_BTN_OK).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szBtnOk, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_BTN_CANCEL).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szBtnCancel, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_ERR_MISMATCH).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szErrMismatch, Str.c_str(), _TRUNCATE);
+								Str = vReq.Get(API_V_PW_ERR_TOLONG).AsStr();
+								if (!Str.empty()) wcsncpy_s(pSection->in.szErrToLong, Str.c_str(), _TRUNCATE);
+
+								// Build command line with section handle
+								WCHAR szSection[32];
+								swprintf_s(szSection, L" -PwPrompt:0x%p", hSection);
+								CmdLine += szSection;
+
+								// Make handle inheritable temporarily
+								SetHandleInformation(hSection, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+
+								// Use STARTUPINFOEX to inherit only the section handle
+								SIZE_T attrListSize = 0;
+								InitializeProcThreadAttributeList(NULL, 1, 0, &attrListSize);
+
+								LPPROC_THREAD_ATTRIBUTE_LIST pAttrList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, attrListSize);
+								if (pAttrList)
+								{
+									STARTUPINFOEXW siex = { 0 };
+									siex.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+									siex.StartupInfo.dwFlags = STARTF_FORCEOFFFEEDBACK;
+									siex.lpAttributeList = pAttrList;
+
+									if (InitializeProcThreadAttributeList(pAttrList, 1, 0, &attrListSize) &&
+										UpdateProcThreadAttribute(pAttrList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &hSection, sizeof(HANDLE), NULL, NULL))
+									{
+										PROCESS_INFORMATION pi = { 0 };
+										if (CreateProcessAsUserW(hNewToken, NULL, (wchar_t*)CmdLine.c_str(), NULL, NULL, TRUE,
+											EXTENDED_STARTUPINFO_PRESENT, NULL, NULL, &siex.StartupInfo, &pi))
+										{
+											WaitForSingleObject(pi.hProcess, INFINITE);
+
+											// Read result from section
+											status = pSection->out.status;
+											if (NT_SUCCESS(status))
+											{
+												CSecurePassword Password(pSection->out.szPassword);
+
+												StVariant vRpl(m_pMemPool);
+												vRpl[API_V_PASSWORD] = Password.ToVariant(pClientData->SharedSecret, SVarWriteOpt());
+												vRpl.ToPacket(rpl);
+											}
+
+											CloseHandle(pi.hProcess);
+											CloseHandle(pi.hThread);
+										}
+									}
+
+									DeleteProcThreadAttributeList(pAttrList);
+									HeapFree(GetProcessHeap(), 0, pAttrList);
 								}
+
+								// Securely wipe and unmap section
+								SecureZeroMemory(pMapping, sizeof(SPasswordPromptSection));
+								NtUnmapViewOfSection(GetCurrentProcess(), pMapping);
+								NtClose(hSection);
+							}
+						}
+						//
+						// Message Box - uses command line for text
+						//
+						else
+						{
+							CmdLine += L" \"-MSGBOX:";
+
+							switch (Type & 0xF) {
+							case MB_OK: CmdLine += L"OK"; break;
+							case MB_OKCANCEL: CmdLine += L"OKCANCEL"; break;
+							case MB_ABORTRETRYIGNORE: CmdLine += L"ABORTRETRYIGNORE"; break;
+							case MB_YESNOCANCEL: CmdLine += L"YESNOCANCEL"; break;
+							case MB_YESNO: CmdLine += L"YESNO"; break;
+							case MB_RETRYCANCEL: CmdLine += L"RETRYCANCEL"; break;
+							case MB_CANCELTRYCONTINUE: CmdLine += L"CANCELTRYCONTINUE"; break;
 							}
 
-							CloseHandle(pi.hProcess);
-							CloseHandle(pi.hThread);
+							switch (Type & 0xF0) {
+							case MB_ICONHAND: CmdLine += L"-STOP"; break;
+							case MB_ICONQUESTION: CmdLine += L"-QUESTION"; break;
+							case MB_ICONEXCLAMATION: CmdLine += L"-EXCLAMATION"; break;
+							case MB_ICONASTERISK: CmdLine += L"-INFORMATION"; break;
+							}
+
+							CmdLine += L":" + Text + L"\"";
+
+							STARTUPINFOW si = { 0 };
+							si.cb = sizeof(si);
+							si.dwFlags = STARTF_FORCEOFFFEEDBACK;
+							si.wShowWindow = SW_SHOWNORMAL;
+							PROCESS_INFORMATION pi = { 0 };
+							if (CreateProcessAsUserW(hNewToken, NULL, (wchar_t*)CmdLine.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+							{
+								if (WaitForSingleObject(pi.hProcess, INFINITE) == 0)
+								{
+									DWORD Code = 0;
+									if (GetExitCodeProcess(pi.hProcess, &Code))
+									{
+										StVariant vRpl(m_pMemPool);
+										vRpl[API_V_MB_CODE] = (uint32)Code;
+										vRpl.ToPacket(rpl);
+
+										status = STATUS_SUCCESS;
+									}
+								}
+
+								CloseHandle(pi.hProcess);
+								CloseHandle(pi.hThread);
+							}
 						}
 					}
 				}
 			}
 
 			return status;
+		}
+
+		case SVC_API_KEY_EXCHANGE:
+		{
+			StVariant vReq(m_pMemPool);
+			vReq.FromPacket(req);
+
+			CBuffer clientPubKey = vReq[API_V_PUB_KEY].To<CBuffer>();
+			if (clientPubKey.GetSize() == 0)
+				return STATUS_INVALID_PARAMETER;
+
+			CKeyExchange KeyExchange;
+			NTSTATUS status = KeyExchange.GenerateKeyPair();
+			if (!NT_SUCCESS(status))
+				return status;
+
+			status = KeyExchange.DeriveSharedSecret(clientPubKey, pClientData->SharedSecret);
+			if (!NT_SUCCESS(status))
+				return status;
+
+			CBuffer svcPubKey;
+			status = KeyExchange.GetPublicKey(svcPubKey);
+			if (!NT_SUCCESS(status))
+				return status;
+
+			StVariant vRpl(m_pMemPool);
+			vRpl[API_V_PUB_KEY] = svcPubKey;
+			vRpl.ToPacket(rpl);
+			return STATUS_SUCCESS;
 		}
 
 		case SVC_API_SHUTDOWN:

@@ -13,6 +13,7 @@
 #include "../Library/Common/FlexGuid.h"
 #include "../Library/IPC/PipeServer.h"
 #include "../Library/IPC/AlpcPortServer.h"
+#include "../Library/Crypto/KeyExchange.h"
 
 #define DEF_CORE_TIMER_INTERVAL		250
 
@@ -118,6 +119,7 @@ protected:
 	void ConfigInit();
 
 	STATUS InitHooks();
+	void RemoveHooks();
 
 	STATUS InitDriver();
 	void CloseDriver();
@@ -186,6 +188,8 @@ protected:
 
 	struct SClient
 	{
+		SClient() {}
+		~SClient() {}
 		bool bIsTrusted = false;
 
 		mutable std::shared_mutex Mutex;
@@ -195,6 +199,8 @@ protected:
 
 		//uint64 LibraryCacheToken = 0;
 		//std::map<uint64, uint64> LibraryCache;
+
+		CBuffer SharedSecret;
 	};
 	typedef std::shared_ptr<SClient> SClientPtr;
 

@@ -102,7 +102,7 @@ bool CVolumeWizard::ShowWizard(QWidget* parent)
 
     // Create the volume
     QString Path = wizard.GetVolumePath();
-    QString Password = wizard.GetPassword();
+    CSecurePassword Password = wizard.GetPassword();
     quint64 ImageSize = wizard.GetImageSize();
     QString Cipher = wizard.GetCipher();
     QString FS = wizard.GetFileSystem();
@@ -143,9 +143,13 @@ QString CVolumeWizard::GetVolumePath() const
     return field("volumePath").toString();
 }
 
-QString CVolumeWizard::GetPassword() const
+CSecurePassword CVolumeWizard::GetPassword() const
 {
-    return field("password").toString();
+    CVolumePasswordPage* pPage = qobject_cast<CVolumePasswordPage*>(page(Page_Password));
+    if (pPage)
+        return pPage->GetPassword();
+    QString sPassword = field("password").toString();
+	return CSecurePassword((wchar_t*)sPassword.utf16(), sPassword.length() * sizeof(wchar_t));
 }
 
 quint64 CVolumeWizard::GetImageSize() const
@@ -741,9 +745,23 @@ CVolumePasswordPage::CVolumePasswordPage(QWidget *parent)
     connect(m_pConfirmPassword, &QLineEdit::textChanged, this, &CVolumePasswordPage::OnPasswordChanged);
     pwLayout->addWidget(m_pConfirmPassword, 1, 1);
 
+    QHBoxLayout* optionsLayout = new QHBoxLayout;
     m_pShowPassword = new QCheckBox(tr("Show password"));
     connect(m_pShowPassword, &QCheckBox::toggled, this, &CVolumePasswordPage::OnShowPassword);
-    pwLayout->addWidget(m_pShowPassword, 2, 1);
+    optionsLayout->addWidget(m_pShowPassword);
+
+    optionsLayout->addStretch();
+
+    m_pSecureEntryBtn = new QToolButton;
+    m_pSecureEntryBtn->setIcon(QIcon(":/Icons/Shield.png"));
+    m_pSecureEntryBtn->setText(tr("Secure Entry"));
+    m_pSecureEntryBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_pSecureEntryBtn->setToolTip(tr("Enter password on secure desktop (protected from keyloggers)"));
+    m_pSecureEntryBtn->setCheckable(true);
+    connect(m_pSecureEntryBtn, &QToolButton::clicked, this, &CVolumePasswordPage::OnSecurePasswordEntry);
+    optionsLayout->addWidget(m_pSecureEntryBtn);
+
+    pwLayout->addLayout(optionsLayout, 2, 1);
 
     layout->addLayout(pwLayout);
 
@@ -774,6 +792,63 @@ void CVolumePasswordPage::OnShowPassword()
     m_pConfirmPassword->setEchoMode(mode);
 }
 
+void CVolumePasswordPage::OnSecurePasswordEntry()
+{
+    if (m_pSecureEntryBtn->isChecked())
+    {
+        auto Ret = theCore->RequestSecurePassword(
+            tr("Enter and confirm your new password:"),
+            tr("MajorPrivacy - Secure Password Entry"),
+            true); // confirm mode
+
+        if (Ret.IsError())
+        {
+            m_pSecureEntryBtn->setChecked(false);
+
+            if (Ret.GetStatus() != STATUS_CANCELLED)
+            {
+                const wchar_t* msg = Ret.GetMessageText();
+                QMessageBox::warning(this, "MajorPrivacy",
+                    tr("Secure password entry failed: %1").arg(msg ? QString::fromWCharArray(msg) : tr("Unknown error")));
+            }
+            return;
+        }
+
+        // Store the secure password
+        m_SecurePassword = Ret.GetValue();
+
+        // Show bullets and disable the regular password fields
+        QString bullets = QString(m_SecurePassword.GetPasswordLength(), QChar(0x2022));
+        m_pPassword->setEnabled(false);
+        m_pPassword->setText(bullets);
+        m_pConfirmPassword->setEnabled(false);
+        m_pConfirmPassword->setText(bullets);
+
+        OnPasswordChanged();
+    }
+    else
+    {
+        // Button unchecked - clear secure password and re-enable fields
+        m_SecurePassword.ClearPassword();
+
+        m_pPassword->setEnabled(true);
+        m_pPassword->clear();
+        m_pConfirmPassword->setEnabled(true);
+        m_pConfirmPassword->clear();
+        m_pPassword->setFocus();
+
+        OnPasswordChanged();
+    }
+}
+
+CSecurePassword CVolumePasswordPage::GetPassword() const
+{
+    if (!m_SecurePassword.IsEmpty())
+        return m_SecurePassword;
+    QString sPassword = m_pPassword->text();
+    return CSecurePassword((wchar_t*)sPassword.utf16(), sPassword.length() * sizeof(wchar_t));
+}
+
 void CVolumePasswordPage::initializePage()
 {
     OnPasswordChanged();
@@ -786,15 +861,36 @@ void CVolumePasswordPage::cleanupPage()
 
 void CVolumePasswordPage::OnPasswordChanged()
 {
-    QString pw = m_pPassword->text();
-    QString confirm = m_pConfirmPassword->text();
+    CSecurePassword pw;
+    bool bConfirm = true;
+    bool bToLong = false;
+    if (!m_SecurePassword.IsEmpty())
+        pw = m_SecurePassword;
+    else {
+        // Get the new password (from secure entry or edit field)
+        QString sPassword = m_pPassword->text();
+        if (sPassword.length() > MAX_SEC_PASSWORD)
+			bToLong = true;
+        else {
+            QString sConfirm = m_pConfirmPassword->text();
+            bConfirm = sPassword == sConfirm;
+
+            pw.SetPassword((wchar_t*)sPassword.utf16(), sPassword.length() * sizeof(wchar_t));
+        }
+    }
 
     // Update strength widget
     int kdfValue = field("kdfValue").toInt();
     m_pStrengthWidget->SetKdfValue(kdfValue);
     m_pStrengthWidget->SetPassword(pw);
 
-    m_pStrengthLabel->setText(CPasswordStrengthWidget::GetPasswordStatusText(pw, confirm));
+    if (bToLong)
+		m_pStrengthLabel->setText(tr("<span style='color:red;'>Password exceeds maximum length of %1 characters!</span>").arg(MAX_SEC_PASSWORD));
+    else if (!bConfirm)
+        m_pStrengthLabel->setText(tr("<span style='color:red;'>Passwords do not match!</span>"));
+    else
+        m_pStrengthLabel->setText(CPasswordStrengthWidget::GetPasswordStatusText(pw));
+
     emit completeChanged();
 }
 
@@ -805,14 +901,18 @@ int CVolumePasswordPage::nextId() const
 
 bool CVolumePasswordPage::isComplete() const
 {
+    // If secure password is set, it's already validated
+    if (!m_SecurePassword.IsEmpty())
+        return true;
+
     QString pw = m_pPassword->text();
     QString confirm = m_pConfirmPassword->text();
 
-    if (pw.isEmpty() || confirm.isEmpty())
+    if (pw.isEmpty())
         return false;
     if (pw != confirm)
         return false;
-    if (pw.length() > 128)
+    if (pw.length() > MAX_SEC_PASSWORD)
         return false;
 
     return true;
@@ -820,24 +920,32 @@ bool CVolumePasswordPage::isComplete() const
 
 bool CVolumePasswordPage::validatePage()
 {
-    QString pw = m_pPassword->text();
-    QString confirm = m_pConfirmPassword->text();
+    CSecurePassword pw;
+    if (!m_SecurePassword.IsEmpty())
+        pw = m_SecurePassword;
+    else {
+        // Get the new password (from secure entry or edit field)
+        QString sPassword = m_pPassword->text();
+        QString sConfirm = m_pConfirmPassword->text();
 
-    if (pw != confirm) {
-        QMessageBox::warning(this, tr("Volume Creation"), tr("Passwords do not match!"));
-        return false;
+        if (sPassword.length() > MAX_SEC_PASSWORD) {
+            QMessageBox::warning(this, tr("Volume Creation"),
+                tr("The password is constrained to a maximum length of %1 characters.\n"
+                    "This length permits approximately 384 bits of entropy with a passphrase composed of actual English words, "
+                    "increases to 512 bits with the application of Leet (L337) speak modifications, "
+                    "and exceeds 768 bits when composed of entirely random printable ASCII characters.").arg(MAX_SEC_PASSWORD));
+            return false;
+        }
+
+        if (sPassword != sConfirm) {
+            QMessageBox::warning(this, tr("Volume Creation"), tr("Passwords do not match!"));
+            return false;
+        }
+
+        pw.SetPassword((wchar_t*)sPassword.utf16(), sPassword.length() * sizeof(wchar_t));
     }
 
-    if (pw.length() > 128) {
-        QMessageBox::warning(this, tr("Volume Creation"),
-            tr("The password is constrained to a maximum length of 128 characters.\n"
-               "This length permits approximately 384 bits of entropy with a passphrase composed of actual English words, "
-               "increases to 512 bits with the application of Leet (L337) speak modifications, "
-               "and exceeds 768 bits when composed of entirely random printable ASCII characters."));
-        return false;
-    }
-
-    if (pw.length() < 20) {
+    if (pw.GetPasswordLength() < 20) {
         if (QMessageBox::warning(this, tr("Volume Creation"),
             tr("WARNING: Short passwords are easy to crack using brute force techniques!\n\n"
                "It is recommended to choose a password consisting of 20 or more characters. "

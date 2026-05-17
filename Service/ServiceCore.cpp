@@ -34,6 +34,7 @@
 #include "../Library/Hooking/HookUtils.h"
 #include "../Library/Helpers/WinUtil.h"
 #include "Presets/PresetManager.h"
+#include "../Library/IPC/ServerReadyEvent.h"
 
 CServiceCore* theCore = NULL;
 
@@ -633,13 +634,14 @@ STATUS CServiceCore::Init()
 		return m_InitStatus;
 	}
 
-#ifndef _DEBUG
-	if (!theCore->Driver()->IsCurProcMaxSecurity() && (theCore->Driver()->IsCurProcHighSecurity() || theCore->Driver()->IsCurProcLowSecurity()))
+//#ifndef _DEBUG
+	//if (!theCore->Driver()->IsCurProcMaxSecurity() && (theCore->Driver()->IsCurProcHighSecurity() || theCore->Driver()->IsCurProcLowSecurity()))
+	if (!theCore->Driver()->IsCurProcDevTrusted())
 		return ERR(STATUS_SYNCHRONIZATION_REQUIRED);
-#endif
+//#endif
 
-	if (!m_pDriver->TestDevAuthority())
-		theCore->Log()->LogEventLine(EVENTLOG_ERROR_TYPE, 0, SVC_EVENT_SVC_INIT_FAILED, L"MajorPrivacy's Service (PrivacyAgent) is not being recognized by the driver (KernelIsolator)!!!");
+	//if (!m_pDriver->TestDevAuthority())
+	//	theCore->Log()->LogEventLine(EVENTLOG_ERROR_TYPE, 0, SVC_EVENT_SVC_INIT_FAILED, L"MajorPrivacy's Service (PrivacyAgent) is not being recognized by the driver (KernelIsolator)!!!");
 
 
 	m_pDriver->RegisterConfigEventHandler(EConfigGroup::eDriverConfig, &CServiceCore::OnDriverChanged, this);
@@ -675,6 +677,15 @@ STATUS CServiceCore::Init()
 	if (!m_InitStatus.IsError())
 		m_InitStatus = m_pUserPipe->Open(API_SERVICE_PIPE);
 #endif
+
+	// Signal any waiting clients that the worker is ready (Local\ event)
+	// When running as a service, this will find no event (different session) and do nothing
+	if (!m_InitStatus.IsError())
+	{
+		DWORD sessionId = -1;
+		ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
+		CServerReadyEvent::WorkerSignal(sessionId == 0 ? API_SERVICE_READY_EVENT : API_WORKER_READY_EVENT);
+	}
 
 	return m_InitStatus;
 }
@@ -733,6 +744,8 @@ void CServiceCore::Shutdown(EShutdownMode eMode)
 	if (WaitForSingleObject(hThread, 10 * 1000) != WAIT_OBJECT_0)
 		TerminateThread(hThread, -1);
 	CloseHandle(hThread);
+
+	theCore->RemoveHooks();
 
 	delete theCore;
 	theCore = NULL;
@@ -1393,8 +1406,16 @@ HMODULE NTAPI MyLoadLibraryExW(
 
 STATUS CServiceCore::InitHooks()
 {
-	if (g_WindowsVersion < WINDOWS_10)
+	if (g_WindowsVersion < WINDOWS_10) {
 		HookFunction(GetProcAddress(GetModuleHandleW(L"KernelBase.dll"), "LoadLibraryExW"), MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
+	}
 
 	return OK;
+}
+
+void CServiceCore::RemoveHooks()
+{
+	if (g_WindowsVersion < WINDOWS_10) {
+		UnHookFunction(LoadLibraryExWTramp, MyLoadLibraryExW);
+	}
 }

@@ -491,11 +491,13 @@
     <ClInclude Include="Crypto\Argon2\blake2\blamka-round-ref.h" />
     <ClInclude Include="Crypto\Argon2\core.h" />
     <ClInclude Include="Crypto\Argon2\defines.h" />
+    <ClInclude Include="Crypto\KeyExchange.h" />
     <ClInclude Include="Crypto\PrivateCrypto.h" />
     <ClInclude Include="Crypto\HashFunction.h" />
     <ClInclude Include="Crypto\PrivateKey.h" />
     <ClInclude Include="Crypto\PublicKey.h" />
     <ClInclude Include="Crypto\Encryption.h" />
+    <ClInclude Include="Crypto\SecurePassword.h" />
     <ClInclude Include="Crypto\SharedCrypto.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Helpers\AppUtil.h" />
@@ -534,6 +536,7 @@
     <ClInclude Include="IPC\FltPortClient.h" />
     <ClInclude Include="IPC\PipeClient.h" />
     <ClInclude Include="IPC\PipeServer.h" />
+    <ClInclude Include="IPC\ServerReadyEvent.h" />
     <ClInclude Include="IPC\PortMessage.h" />
     <ClInclude Include="lib_global.h" />
     <ClInclude Include="pch.h" />
@@ -779,9 +782,11 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Crypto\HashFunction.cpp" />
+    <ClCompile Include="Crypto\KeyExchange.cpp" />
     <ClCompile Include="Crypto\PrivateKey.cpp" />
     <ClCompile Include="Crypto\PublicKey.cpp" />
     <ClCompile Include="Crypto\Encryption.cpp" />
+    <ClCompile Include="Crypto\SecurePassword.cpp" />
     <ClCompile Include="Crypto\SharedCrypto.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Helpers\AppUtil.cpp" />
@@ -1043,6 +1048,7 @@
     <ClCompile Include="IPC\FltPortClient.cpp" />
     <ClCompile Include="IPC\PipeClient.cpp" />
     <ClCompile Include="IPC\PipeServer.cpp" />
+    <ClCompile Include="IPC\ServerReadyEvent.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>

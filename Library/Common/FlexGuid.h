@@ -46,7 +46,7 @@ public:
 	bool operator != (const CFlexGuid& other) const { return Compare(other) != 0; }
 
 	bool			FromVariant(const FW::CVariant& Variant);
-	FW::CVariant		ToVariant(bool bTextOnly/* = false*/, FW::AbstractMemPool* pMemPool = nullptr) const;
+	FW::CVariant	ToVariant(bool bTextOnly/* = false*/, FW::AbstractMemPool* pMemPool = nullptr) const;
 
 	static FW::CVariant WriteList(const std::vector<CFlexGuid>& List, bool bTextOnly/* = false*/, FW::AbstractMemPool* pMemPool = nullptr)
 	{

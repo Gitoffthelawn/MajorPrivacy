@@ -269,7 +269,7 @@ STATUS CPrivacyCore::Connect(bool bCanStart, bool bEngineMode)
 				return ERR(STATUS_PIPE_DISCONNECTED, L"Service NOT Available"); // STATUS_PORT_DISCONNECTED
 			if(ServiceABI != MY_ABI_VERSION)
 				return ERR(STATUS_REVISION_MISMATCH, L"Service ABI Mismatch");
-		} else 
+		} else
 			return Status;
 	}
 
@@ -1770,16 +1770,24 @@ STATUS CPrivacyCore::SetVolume(const QtVariant& Volume)
 	return m_Service->Call(SVC_API_VOL_SET_VOLUME, Volume);
 }
 
-STATUS CPrivacyCore::MountVolume(const QString& Path, const QString& MountPoint, const QString& Password, bool bProtect, bool bLockdown, int iKdf)
+STATUS CPrivacyCore::MountVolume(const QString& Path, const QString& MountPoint, const CSecurePassword& Password, bool bProtect, bool bLockdown, int iKdf)
 {
+	std::shared_ptr<CServiceAPI> pService = GetServicePort();
+	const CBuffer& SharedSecret = pService->GetSharedSecret();
+	if (SharedSecret.GetSize() == 0) {
+		STATUS Status = pService->NegotiateKey();
+		if (!Status)
+			return ERR(Status, L"Key Exchange Failed");
+	}
+
 	QtVariant Request(m_pMemPool);
 	Request[API_V_VOL_PATH] = QString(Path).replace("/","\\");
 	Request[API_V_VOL_MOUNT_POINT] = MountPoint;
-	Request[API_V_VOL_PASSWORD] = Password;
+	Request[API_V_VOL_PASSWORD] = Password.ToVariant(SharedSecret, SVarWriteOpt());
 	Request[API_V_VOL_PROTECT] = bProtect;
 	Request[API_V_VOL_LOCKDOWN] = bLockdown;
 	if (iKdf) Request[API_V_VOL_KDF] = iKdf;
-	return GetServicePort()->Call(SVC_API_VOL_MOUNT_IMAGE, Request);
+	return pService->Call(SVC_API_VOL_MOUNT_IMAGE, Request);
 }
 
 STATUS CPrivacyCore::DismountVolume(const QString& MountPoint)
@@ -1795,19 +1803,27 @@ STATUS CPrivacyCore::DismountAllVolumes()
 	return GetServicePort()->Call(SVC_API_VOL_DISMOUNT_ALL, Request);
 }
 
-STATUS CPrivacyCore::CreateVolume(const QString& Path, const QString& Password, quint64 ImageSize, const QString& Cipher, int iKdf, const QString& FS)
+STATUS CPrivacyCore::CreateVolume(const QString& Path, const CSecurePassword& Password, quint64 ImageSize, const QString& Cipher, int iKdf, const QString& FS)
 {
+	std::shared_ptr<CServiceAPI> pService = GetServicePort();
+	const CBuffer& SharedSecret = pService->GetSharedSecret();
+	if (SharedSecret.GetSize() == 0) {
+		STATUS Status = pService->NegotiateKey();
+		if (!Status)
+			return ERR(Status, L"Key Exchange Failed");
+	}
+
 	QtVariant Request(m_pMemPool);
 	Request[API_V_VOL_PATH] = QString(Path).replace("/","\\");
-	Request[API_V_VOL_PASSWORD] = Password;
+	Request[API_V_VOL_PASSWORD] = Password.ToVariant(SharedSecret, SVarWriteOpt());
 	if(ImageSize) Request[API_V_VOL_SIZE] = ImageSize;
 	if(!Cipher.isEmpty()) Request[API_V_VOL_CIPHER] = Cipher;
 	if(iKdf) Request[API_V_VOL_KDF] = iKdf;
 	if(!FS.isEmpty()) Request[API_V_VOL_FS] = FS;
-	return GetServicePort()->Call(SVC_API_VOL_CREATE_IMAGE, Request);
+	return pService->Call(SVC_API_VOL_CREATE_IMAGE, Request);
 }
 
-STATUS CPrivacyCore::ChangeVolumePassword(const QString& Path, const QString& OldPassword, const QString& NewPassword, int iOldKdf, int iNewKdf)
+STATUS CPrivacyCore::ChangeVolumePassword(const QString& Path, const CSecurePassword& OldPassword, const CSecurePassword& NewPassword, int iOldKdf, int iNewKdf)
 {
 	//QtVariant Request(m_pMemPool);
 	//Request[API_V_VOL_PATH] = QString(Path).replace("/","\\");
@@ -1820,11 +1836,11 @@ STATUS CPrivacyCore::ChangeVolumePassword(const QString& Path, const QString& Ol
 	CBuffer Data(sizeof(SPassword), true);
 	SPassword* pNewPass = (SPassword*)Data.GetBuffer();
 	memset(pNewPass, 0, sizeof(SPassword));
-	pNewPass->size = NewPassword.length() * sizeof(wchar_t);
-	memcpy(pNewPass->pass, NewPassword.utf16(), pNewPass->size);
+	pNewPass->size = NewPassword.GetPasswordSize();
+	memcpy(pNewPass->pass, NewPassword.GetPassword(), pNewPass->size);
 	pNewPass->kdf = iNewKdf;
 
-	return ExecImDisk(Path.toStdWString(), (wchar_t*)OldPassword.utf16(), iOldKdf, L"new_key", true, &Data, SECTION_PARAM_ID_NEW_PASS);
+	return ExecImDisk(Path.toStdWString(), OldPassword.GetPassword(), iOldKdf, L"new_key", true, &Data, SECTION_PARAM_ID_NEW_PASS);
 }
 
 STATUS CPrivacyCore::ExpandVolume(const QString& MountPoint, quint64 uAddSize)
@@ -1835,7 +1851,7 @@ STATUS CPrivacyCore::ExpandVolume(const QString& MountPoint, quint64 uAddSize)
 	return GetServicePort()->Call(SVC_API_VOL_EXPAND, Request);
 }
 
-STATUS CPrivacyCore::BackupVolumeHeader(const QString& Path, const QString& BackupPath, const QString& Password, int iKdf)
+STATUS CPrivacyCore::BackupVolumeHeader(const QString& Path, const QString& BackupPath, const CSecurePassword& Password, int iKdf)
 {
 	//QtVariant Request(m_pMemPool);
 	//Request[API_V_VOL_PATH] = QString(Path).replace("/","\\");
@@ -1844,10 +1860,10 @@ STATUS CPrivacyCore::BackupVolumeHeader(const QString& Path, const QString& Back
 	//if(iKdf) Request[API_V_VOL_KDF] = iKdf;
 	//return GetServicePort()->Call(SVC_API_VOL_BACKUP_HEADER, Request);
 	std::wstring cmd = L"backup=\"" + BackupPath.toStdWString() + L"\"";
-	return ExecImDisk(Path.toStdWString(), (wchar_t*)Password.utf16(), iKdf, cmd);
+	return ExecImDisk(Path.toStdWString(), Password.GetPassword(), iKdf, cmd);
 }
 
-STATUS CPrivacyCore::RestoreVolumeHeader(const QString& Path, const QString& BackupPath, const QString& Password, int iKdf)
+STATUS CPrivacyCore::RestoreVolumeHeader(const QString& Path, const QString& BackupPath, const CSecurePassword& Password, int iKdf)
 {
 	//QtVariant Request(m_pMemPool);
 	//Request[API_V_VOL_PATH] = QString(Path).replace("/","\\");
@@ -1856,7 +1872,7 @@ STATUS CPrivacyCore::RestoreVolumeHeader(const QString& Path, const QString& Bac
 	//if(iKdf) Request[API_V_VOL_KDF] = iKdf;
 	//return GetServicePort()->Call(SVC_API_VOL_RESTORE_HEADER, Request);
 	std::wstring cmd = L"restore=\"" + BackupPath.toStdWString() + L"\"";
-	return ExecImDisk(Path.toStdWString(), (wchar_t*)Password.utf16(), iKdf, cmd);
+	return ExecImDisk(Path.toStdWString(), Password.GetPassword(), iKdf, cmd);
 }
 
 // Tweak Manager
@@ -1966,6 +1982,38 @@ RESULT(QtVariant) CPrivacyCore::GetServiceStats()
 {
 	QtVariant Request(m_pMemPool);
 	RET_AS_XVARIANT(m_Service->Call(SVC_API_GET_SVC_STATS, Request));
+}
+
+RESULT(CSecurePassword) CPrivacyCore::RequestSecurePassword(const QString& Prompt, const QString& Title, bool bConfirm)
+{
+	const CBuffer& SharedSecret = m_Service->GetSharedSecret();
+	if (SharedSecret.GetSize() == 0) {
+		STATUS Status = m_Service->NegotiateKey();
+		if (!Status)
+			return ERR(Status, L"Key Exchange Failed");
+	}
+
+	QtVariant Request(m_pMemPool);
+	Request[API_V_MB_TEXT] = Prompt;
+	Request[API_V_MB_TITLE] = Title.isEmpty() ? QString("MajorPrivacy") : Title;
+	Request[API_V_MB_TYPE] = (uint32)(bConfirm ? PDLG_CONFIRM_PW : PDLG_ENTER_PW);
+	// Optional localization strings
+	Request[API_V_PW_LBL_PASSWORD] = tr("Password:");
+	Request[API_V_PW_LBL_CONFIRM] = tr("Confirm:");
+	Request[API_V_PW_LBL_SHOW] = tr("Show password");
+	Request[API_V_PW_BTN_OK] = tr("OK");
+	Request[API_V_PW_BTN_CANCEL] = tr("Cancel");
+	Request[API_V_PW_ERR_MISMATCH] = tr("Passwords do not match!");
+	Request[API_V_PW_ERR_TOLONG] = tr("Password is too long! Maximum length is %1 characters.").arg(MAX_SEC_PASSWORD);
+
+	auto Ret = m_Service->Call(SVC_API_SHOW_SECURE_PROMPT, Request);
+	if (Ret.IsError())
+		return Ret;
+	
+	CSecurePassword Password;
+	if(!Password.FromVariant(Ret.GetValue()[API_V_PASSWORD], SharedSecret))
+		return ERR(STATUS_UNSUCCESSFUL);
+	return Password;
 }
 
 RESULT(QtVariant) CPrivacyCore::GetScriptLog(const QFlexGuid& Guid, EItemType Type, quint32 LastID)
@@ -2241,4 +2289,11 @@ STATUS CPrivacyCore::InitHooks()
 	HookFunction(GetProcAddress(GetModuleHandleW(L"KernelBase.dll"), "LoadLibraryExW"), MyLoadLibraryExW, (VOID**)&LoadLibraryExWTramp);
 
 	return OK;
+}
+
+void CPrivacyCore::RemoveHooks()
+{
+	UnHookFunction(NtMapViewOfSectionTramp, MyMapViewOfSection);
+
+	UnHookFunction(LoadLibraryExWTramp, MyLoadLibraryExW);
 }

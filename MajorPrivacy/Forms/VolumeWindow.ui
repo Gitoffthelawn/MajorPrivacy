@@ -28,13 +28,6 @@
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="5" column="2" colspan="4">
-      <widget class="QLineEdit" name="txtRepeatPassword">
-       <property name="echoMode">
-        <enum>QLineEdit::EchoMode::Password</enum>
-       </property>
-      </widget>
-     </item>
      <item row="9" column="2" colspan="3">
       <widget class="QComboBox" name="cmbMount">
        <property name="editable">
@@ -42,10 +35,23 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="2" colspan="4">
+     <item row="1" column="2" colspan="3">
       <widget class="QLineEdit" name="txtPassword">
        <property name="echoMode">
         <enum>QLineEdit::EchoMode::Password</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="5">
+      <widget class="QToolButton" name="btnSecurePw">
+       <property name="toolTip">
+        <string>Enter password on secure desktop</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -78,9 +84,6 @@
         </size>
        </property>
       </widget>
-     </item>
-     <item row="6" column="2" colspan="4">
-      <widget class="QComboBox" name="cmbNewKdf"/>
      </item>
      <item row="9" column="1">
       <widget class="QLabel" name="lblMount">
@@ -118,9 +121,6 @@
         <bool>true</bool>
        </property>
       </widget>
-     </item>
-     <item row="2" column="2" colspan="4">
-      <widget class="QComboBox" name="cmbKdf"/>
      </item>
      <item row="8" column="0" colspan="4">
       <widget class="QLabel" name="lblAutoLocl">
@@ -168,10 +168,23 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="2" colspan="4">
+     <item row="4" column="2" colspan="3">
       <widget class="QLineEdit" name="txtNewPassword">
        <property name="echoMode">
         <enum>QLineEdit::EchoMode::Password</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="5">
+      <widget class="QToolButton" name="btnSecureNewPw">
+       <property name="toolTip">
+        <string>Enter new password on secure desktop</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -245,6 +258,19 @@
         <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
        </property>
       </widget>
+     </item>
+     <item row="5" column="2" colspan="3">
+      <widget class="QLineEdit" name="txtRepeatPassword">
+       <property name="echoMode">
+        <enum>QLineEdit::EchoMode::Password</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2" colspan="3">
+      <widget class="QComboBox" name="cmbKdf"/>
+     </item>
+     <item row="6" column="2" colspan="3">
+      <widget class="QComboBox" name="cmbNewKdf"/>
      </item>
     </layout>
    </item>

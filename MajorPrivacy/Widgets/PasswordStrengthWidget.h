@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QLabel>
 #include <QProgressBar>
+#include "../../Library/Crypto/SecurePassword.h"
 
 class CPasswordStrengthWidget : public QWidget
 {
@@ -11,13 +12,13 @@ class CPasswordStrengthWidget : public QWidget
 public:
     CPasswordStrengthWidget(QWidget* parent = nullptr);
 
-    void SetPassword(const QString& password);
+    void SetPassword(const CSecurePassword& password);
     void SetKdfValue(int kdfValue);
 
     int GetEntropy() const { return m_Entropy; }
     int GetLength() const { return m_Length; }
 
-    static QString GetPasswordStatusText(const QString& password, const QString& confirm);
+    static QString GetPasswordStatusText(const CSecurePassword& password);
 
 private:
     struct PasswordInfo {
@@ -35,7 +36,7 @@ private:
         P_NCHAR = 32   // national/other characters
     };
 
-    void CheckPassword(const QString& password, PasswordInfo& info);
+    void CheckPassword(const CSecurePassword& password, PasswordInfo& info);
     double CalculateKdfEntropyBonus(int kdfValue);
     void UpdateDisplay();
 
